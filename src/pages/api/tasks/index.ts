@@ -17,17 +17,25 @@ export default async function handler(
     const userId = session.user.id;
 
     if (req.method === 'GET') {
-      const { status, limit: limitQuery } = req.query;
+      const { status, limit: limitQuery, sort } = req.query;
       const limit = limitQuery ? parseInt(limitQuery as string, 10) : undefined;
+
+      // Determinar el orden basado en el parámetro sort
+      let orderBy: any = { dueDate: 'asc' }; // Por defecto
+      if (sort === 'recent') {
+        orderBy = { updatedAt: 'desc' };
+      } else if (sort === 'created') {
+        orderBy = { createdAt: 'desc' };
+      } else if (sort === 'priority') {
+        orderBy = { priority: 'desc' };
+      }
 
       const tasks = await prisma.task.findMany({
         where: {
           userId,
           ...(status && { status: status as string }),
         },
-        orderBy: {
-          dueDate: 'asc',
-        },
+        orderBy,
         take: limit,
       });
       res.status(200).json(tasks);

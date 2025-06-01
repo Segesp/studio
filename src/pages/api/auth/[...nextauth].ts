@@ -8,47 +8,90 @@ import { prisma } from '@/lib/prisma'; // Adjusted path
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    GitHubProvider({
-      clientId: process.env.GITHUB_ID as string,
-      clientSecret: process.env.GITHUB_SECRET as string,
-    }),
+    // Solo incluir GitHub si las credenciales están configuradas
+    ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET ? [
+      GitHubProvider({
+        clientId: process.env.GITHUB_ID,
+        clientSecret: process.env.GITHUB_SECRET,
+      })
+    ] : []),
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'Demo Login',
       credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'john.doe@example.com' },
-        password: { label: 'Password', type: 'password' },
+        email: { 
+          label: 'Email', 
+          type: 'email', 
+          placeholder: 'demo@example.com' 
+        },
+        password: { 
+          label: 'Password', 
+          type: 'password',
+          placeholder: 'demo' 
+        },
       },
       async authorize(credentials) {
-        // This is a placeholder for development.
-        // In a real application, you would validate credentials against your database.
-        // For example, find a user by email and verify the password.
-        // const user = await prisma.user.findUnique({ where: { email: credentials?.email } });
-        // if (user && user.password === credentials.password) { // Hash passwords in production!
-        //   return { id: user.id, name: user.name, email: user.email, image: user.image };
-        // }
-        // For now, let's allow any credentials for demo purposes if GITHUB_ID is not set
-        if (!process.env.GITHUB_ID && credentials?.email) {
-           const user = await prisma.user.upsert({
-            where: { email: credentials.email },
-            update: { name: credentials.email.split('@')[0] },
-            create: {
-              email: credentials.email,
-              name: credentials.email.split('@')[0],
-            },
-          });
-          return { id: user.id, name: user.name, email: user.email, image: user.image };
+        try {
+          // Para desarrollo: permitir login con demo@example.com / demo
+          if (credentials?.email === 'demo@example.com' && credentials?.password === 'demo') {
+            const user = await prisma.user.upsert({
+              where: { email: 'demo@example.com' },
+              update: { 
+                name: 'Usuario Demo',
+                // Actualizar último acceso
+                updatedAt: new Date()
+              },
+              create: {
+                email: 'demo@example.com',
+                name: 'Usuario Demo',
+              },
+            });
+            
+            return { 
+              id: user.id, 
+              name: user.name, 
+              email: user.email, 
+              image: user.image 
+            };
+          }
+          
+          // Para cualquier otro email, crear/actualizar usuario automáticamente en desarrollo
+          if (credentials?.email && process.env.NODE_ENV === 'development') {
+            const user = await prisma.user.upsert({
+              where: { email: credentials.email },
+              update: { 
+                name: credentials.email.split('@')[0],
+                updatedAt: new Date()
+              },
+              create: {
+                email: credentials.email,
+                name: credentials.email.split('@')[0],
+              },
+            });
+            
+            return { 
+              id: user.id, 
+              name: user.name, 
+              email: user.email, 
+              image: user.image 
+            };
+          }
+          
+          return null;
+        } catch (error) {
+          console.error('Error durante autorización:', error);
+          return null;
         }
-        return null;
       },
     }),
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 24 * 60 * 60, // 24 horas
   },
   callbacks: {
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub as string; // Add id to session user object
+        session.user.id = token.sub as string;
       }
       return session;
     },
@@ -58,15 +101,19 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+    async redirect({ url, baseUrl }) {
+      // Asegurar redirecciones seguras
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl + "/dashboard";
+    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "dev-secret-change-in-production",
   pages: {
-    signIn: '/api/auth/signin', // Default NextAuth sign-in page
-    // signOut: '/auth/signout', // Default
-    // error: '/auth/error', // Error code passed in query string as ?error=
-    // verifyRequest: '/auth/verify-request', // (e.g. check your email)
-    // newUser: '/auth/new-user' // New users will be directed here on first sign in (leave the property out to disable)
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
+  debug: process.env.NODE_ENV === 'development',
 };
 
 export default NextAuth(authOptions);

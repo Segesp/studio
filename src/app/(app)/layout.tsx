@@ -4,6 +4,9 @@ import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
+
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
 import {
   Sidebar,
   SidebarHeader,
@@ -21,35 +24,36 @@ import { RealtimeNotifications } from '@/components/sync/realtime-notifications'
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   let session;
+  
   try {
     session = await getServerSession(authOptions);
   } catch (error) {
-    console.error("Critical error fetching session in AppLayout:", error);
-    // This error means authentication system itself or DB might be down.
-    // Displaying a generic error page is best.
-    // Ensure this fallback is self-contained and doesn't depend on potentially failing parts of the app.
+    console.error("Error crítico obteniendo sesión en AppLayout:", error);
+    // Error crítico del sistema de autenticación o BD caída
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-4">
-          <div className="text-center p-8 rounded-lg border shadow-xl bg-card max-w-md">
-            <h1 className="text-3xl font-headline font-bold text-destructive mb-4">Application Unavailable</h1>
-            <p className="text-lg text-muted-foreground mb-3">
-              We're experiencing technical difficulties and cannot load user session data at this moment.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Please ensure your database is running and environment variables (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL) are correctly configured.
-              Try again in a few moments. If the problem persists, please contact support or check server logs.
-            </p>
-            <Link href="/" className="mt-4 inline-block text-primary hover:underline">
-              Go to Homepage
-            </Link>
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-4">
+        <div className="text-center p-8 rounded-lg border shadow-xl bg-card max-w-md">
+          <h1 className="text-3xl font-headline font-bold text-destructive mb-4">
+            Aplicación No Disponible
+          </h1>
+          <p className="text-lg text-muted-foreground mb-3">
+            Experimentamos dificultades técnicas y no podemos cargar los datos de sesión del usuario.
+          </p>
+          <p className="text-sm text-muted-foreground mb-6">
+            Verifica que tu base de datos esté ejecutándose y las variables de entorno 
+            (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL) estén configuradas correctamente.
+          </p>
+          <Link href="/" className="mt-4 inline-block text-primary hover:underline">
+            Ir a la página de inicio
+          </Link>
         </div>
+      </div>
     );
   }
 
+  // Si no hay sesión, redirigir usando NextAuth
   if (!session?.user) {
-    redirect('/api/auth/signin?callbackUrl=/dashboard');
-    // redirect() throws an error, so execution stops here.
+    redirect('/auth/signin');
   }
 
   return (

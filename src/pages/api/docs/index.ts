@@ -17,11 +17,13 @@ export default async function handler(
     const userId = session.user.id;
 
     if (req.method === 'GET') {
-      const { limit: limitQuery, order } = req.query;
+      const { limit: limitQuery, order, sort } = req.query;
       const limit = limitQuery ? parseInt(limitQuery as string, 10) : undefined;
       
       let orderBy: any = { updatedAt: 'desc' };
-      if (order === 'updatedAt desc') {
+      if (sort === 'recent') {
+        orderBy = { updatedAt: 'desc' };
+      } else if (order === 'updatedAt desc') {
         orderBy = { updatedAt: 'desc' };
       } else if (order === 'createdAt asc') {
         orderBy = { createdAt: 'asc' };
@@ -56,7 +58,7 @@ export default async function handler(
       await prisma.docVersion.create({
         data: {
           docId: newDoc.id,
-          content: {}, 
+          content: JSON.stringify({}), 
           createdBy: userId,
         }
       });

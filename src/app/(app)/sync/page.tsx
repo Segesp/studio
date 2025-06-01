@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RefreshCw, CheckCircle, Wifi, Cloud, Users, FileText, Calendar } from "lucide-react";
 import Image from "next/image";
