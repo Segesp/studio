@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 import {
   Sidebar,
   SidebarHeader,
@@ -10,7 +11,9 @@ import {
 } from '@/components/ui/sidebar';
 import { NavLinks } from '@/components/layout/nav-links';
 import { Button } from '@/components/ui/button';
+import { Loader } from '@/components/ui/loader';
 import { LogOut } from 'lucide-react';
+import Link from 'next/link';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -41,12 +44,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
            <SidebarTrigger className="hidden md:flex" />
         </header>
         <main className="flex-1 p-6">
-          {children}
+          <Suspense fallback={
+            <div className="flex h-[calc(100vh-12rem)] w-full items-center justify-center"> {/* Adjusted height for better centering */}
+              <Loader size={48} />
+            </div>
+          }>
+            {children}
+          </Suspense>
         </main>
       </SidebarInset>
     </div>
   );
 }
-
-// Need to import Link for the logo
-import Link from 'next/link';
