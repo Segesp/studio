@@ -9,37 +9,30 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session || !session.user || !session.user.id) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-  const userId = session.user.id;
-  const eventId = req.query.id as string;
+  try {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user || !session.user.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const userId = session.user.id;
+    const eventId = req.query.id as string;
 
-  if (!eventId) {
-    return res.status(400).json({ message: 'Event ID is required' });
-  }
+    if (!eventId) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
 
-  if (req.method === 'GET') {
-    try {
+    if (req.method === 'GET') {
       const event = await prisma.event.findUnique({
         where: { id: eventId },
       });
       if (!event) {
         return res.status(404).json({ message: 'Event not found' });
       }
-      // For events, we might allow reading public events from other users later.
-      // For now, strict to user's own events.
       if (event.userId !== userId && !event.isPublic) {
         return res.status(403).json({ message: 'Forbidden' });
       }
       res.status(200).json(event);
-    } catch (error) {
-      console.error('Failed to fetch event:', error);
-      res.status(500).json({ message: 'Failed to fetch event' });
-    }
-  } else if (req.method === 'PUT') {
-    try {
+    } else if (req.method === 'PUT') {
       const eventToUpdate = await prisma.event.findUnique({ where: { id: eventId } });
       if (!eventToUpdate) {
         return res.status(404).json({ message: 'Event not found' });
@@ -61,12 +54,7 @@ export default async function handler(
         },
       });
       res.status(200).json(updatedEvent);
-    } catch (error) {
-      console.error('Failed to update event:', error);
-      res.status(500).json({ message: 'Failed to update event' });
-    }
-  } else if (req.method === 'DELETE') {
-    try {
+    } else if (req.method === 'DELETE') {
       const eventToDelete = await prisma.event.findUnique({ where: { id: eventId } });
       if (!eventToDelete) {
         return res.status(404).json({ message: 'Event not found' });
@@ -79,12 +67,13 @@ export default async function handler(
         where: { id: eventId },
       });
       res.status(204).end();
-    } catch (error) {
-      console.error('Failed to delete event:', error);
-      res.status(500).json({ message: 'Failed to delete event' });
+    } else {
+      res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+      res.status(405).json({ message: `Method ${req.method} Not Allowed` });
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  } catch (error: any) {
+    console.error(`API Error in ${req.url}:`, error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ message: error.message || 'Internal Server Error', errorDetails: error.toString() });
   }
 }

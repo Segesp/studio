@@ -9,24 +9,23 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session || !session.user || !session.user.id) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-  const userId = session.user.id;
+  try {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user || !session.user.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const userId = session.user.id;
 
-  if (req.method === 'GET') {
-    try {
-      const { limit: limitQuery, order } = req.query; // order example: 'updatedAt desc'
+    if (req.method === 'GET') {
+      const { limit: limitQuery, order } = req.query;
       const limit = limitQuery ? parseInt(limitQuery as string, 10) : undefined;
       
-      let orderBy: any = { updatedAt: 'desc' }; // Default ordering
+      let orderBy: any = { updatedAt: 'desc' };
       if (order === 'updatedAt desc') {
         orderBy = { updatedAt: 'desc' };
       } else if (order === 'createdAt asc') {
         orderBy = { createdAt: 'asc' };
       }
-      // Add more order options if needed
 
       const docs = await prisma.doc.findMany({
         where: {
@@ -41,12 +40,7 @@ export default async function handler(
         }
       });
       res.status(200).json(docs);
-    } catch (error) {
-      console.error('Failed to fetch docs:', error);
-      res.status(500).json({ message: 'Failed to fetch docs' });
-    }
-  } else if (req.method === 'POST') {
-    try {
+    } else if (req.method === 'POST') {
       const { title } = req.body as Partial<Doc>;
       if (!title) {
         return res.status(400).json({ message: 'Title is required' });
@@ -58,11 +52,11 @@ export default async function handler(
           ownerId: userId,
         },
       });
-      // Create an initial empty version
+      
       await prisma.docVersion.create({
         data: {
           docId: newDoc.id,
-          content: {}, // Empty JSON object for initial version
+          content: {}, 
           createdBy: userId,
         }
       });
@@ -70,15 +64,16 @@ export default async function handler(
       const docWithInitialVersion = await prisma.doc.findUnique({
         where: {id: newDoc.id},
         include: { versions: true}
-      })
+      });
 
       res.status(201).json(docWithInitialVersion);
-    } catch (error) {
-      console.error('Failed to create doc:', error);
-      res.status(500).json({ message: 'Failed to create doc' });
+    } else {
+      res.setHeader('Allow', ['GET', 'POST']);
+      res.status(405).json({ message: `Method ${req.method} Not Allowed` });
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  } catch (error: any) {
+    console.error(`API Error in ${req.url}:`, error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ message: error.message || 'Internal Server Error', errorDetails: error.toString() });
   }
 }

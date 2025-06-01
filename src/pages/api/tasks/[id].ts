@@ -9,19 +9,19 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session || !session.user || !session.user.id) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-  const userId = session.user.id;
-  const taskId = req.query.id as string;
+  try {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user || !session.user.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const userId = session.user.id;
+    const taskId = req.query.id as string;
 
-  if (!taskId) {
-    return res.status(400).json({ message: 'Task ID is required' });
-  }
+    if (!taskId) {
+      return res.status(400).json({ message: 'Task ID is required' });
+    }
 
-  if (req.method === 'GET') {
-    try {
+    if (req.method === 'GET') {
       const task = await prisma.task.findUnique({
         where: { id: taskId },
       });
@@ -32,12 +32,7 @@ export default async function handler(
         return res.status(403).json({ message: 'Forbidden' });
       }
       res.status(200).json(task);
-    } catch (error) {
-      console.error('Failed to fetch task:', error);
-      res.status(500).json({ message: 'Failed to fetch task' });
-    }
-  } else if (req.method === 'PUT') {
-    try {
+    } else if (req.method === 'PUT') {
       const taskToUpdate = await prisma.task.findUnique({ where: { id: taskId } });
       if (!taskToUpdate) {
         return res.status(404).json({ message: 'Task not found' });
@@ -59,12 +54,7 @@ export default async function handler(
         },
       });
       res.status(200).json(updatedTask);
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      res.status(500).json({ message: 'Failed to update task' });
-    }
-  } else if (req.method === 'DELETE') {
-    try {
+    } else if (req.method === 'DELETE') {
       const taskToDelete = await prisma.task.findUnique({ where: { id: taskId } });
       if (!taskToDelete) {
         return res.status(404).json({ message: 'Task not found' });
@@ -77,12 +67,13 @@ export default async function handler(
         where: { id: taskId },
       });
       res.status(204).end();
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      res.status(500).json({ message: 'Failed to delete task' });
+    } else {
+      res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+      res.status(405).json({ message: `Method ${req.method} Not Allowed` });
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  } catch (error: any) {
+    console.error(`API Error in ${req.url}:`, error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ message: error.message || 'Internal Server Error', errorDetails: error.toString() });
   }
 }
