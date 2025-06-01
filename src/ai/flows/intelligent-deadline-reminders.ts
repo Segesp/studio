@@ -33,6 +33,7 @@ export async function intelligentDeadlineReminder(input: IntelligentDeadlineRemi
 
 const prompt = ai.definePrompt({
   name: 'intelligentDeadlineReminderPrompt',
+  model: 'googleai/gemini-2.0-flash', // Explicitly specify the model
   input: {schema: IntelligentDeadlineReminderInputSchema},
   output: {schema: IntelligentDeadlineReminderOutputSchema},
   prompt: `You are an AI assistant helping users manage their tasks and deadlines effectively.
@@ -60,6 +61,9 @@ const intelligentDeadlineReminderFlow = ai.defineFlow(
     outputSchema: IntelligentDeadlineReminderOutputSchema,
   },
   async input => {
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error('AI features are unavailable. GOOGLE_API_KEY is not configured.');
+    }
     const {output} = await prompt(input);
     return output!;
   }

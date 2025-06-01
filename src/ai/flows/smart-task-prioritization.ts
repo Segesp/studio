@@ -43,6 +43,7 @@ export async function smartTaskPrioritization(input: SmartTaskPrioritizationInpu
 
 const prompt = ai.definePrompt({
   name: 'smartTaskPrioritizationPrompt',
+  model: 'googleai/gemini-2.0-flash', // Explicitly specify the model
   input: {schema: SmartTaskPrioritizationInputSchema},
   output: {schema: SmartTaskPrioritizationOutputSchema},
   prompt: `You are an AI task prioritization assistant. Given a list of tasks, their deadlines, importance levels, and context, you will provide a prioritized list of tasks with a priority score and a reason for each score.
@@ -74,6 +75,9 @@ const smartTaskPrioritizationFlow = ai.defineFlow(
     outputSchema: SmartTaskPrioritizationOutputSchema,
   },
   async input => {
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error('AI features are unavailable. GOOGLE_API_KEY is not configured.');
+    }
     const {output} = await prompt(input);
     return output!;
   }

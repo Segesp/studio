@@ -41,6 +41,7 @@ export async function smartEventScheduling(input: SmartEventSchedulingInput): Pr
 
 const prompt = ai.definePrompt({
   name: 'smartEventSchedulingPrompt',
+  model: 'googleai/gemini-2.0-flash', // Explicitly specify the model
   input: {schema: SmartEventSchedulingInputSchema},
   output: {schema: SmartEventSchedulingOutputSchema},
   prompt: `You are a smart event scheduling assistant. Given the following information, suggest the optimal time for the event, considering participant availability, event duration, location, and any other relevant context.\n\nParticipants: {{{participants}}}\nDuration: {{{durationMinutes}}} minutes\nLocation: {{{location}}}\nContext: {{{context}}}\n\nConsider the working hours and timezones for the participants when providing the suggested time. Return the suggested time and the reasoning behind it.`,
@@ -53,6 +54,9 @@ const smartEventSchedulingFlow = ai.defineFlow(
     outputSchema: SmartEventSchedulingOutputSchema,
   },
   async input => {
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error('AI features are unavailable. GOOGLE_API_KEY is not configured.');
+    }
     const {output} = await prompt(input);
     return output!;
   }

@@ -1,5 +1,6 @@
-import { config } from 'dotenv';
-config();
+
+// import { config } from 'dotenv'; // Removed explicit dotenv call
+// config(); // Next.js and Genkit will handle .env loading
 
 import '@/ai/flows/smart-event-scheduling.ts';
 import '@/ai/flows/smart-task-prioritization.ts';
