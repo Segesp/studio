@@ -2,12 +2,11 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 
-export default async function handler(
-
+// Definición de interfaces fuera de la función handler
 interface EventSchedulingRequest {
   userConstraints: {
-    availableSlots?: Array<{ date: string; startHour: number; endHour: number; }>;
-    duration: number; // Duration in hours
+    availableSlots?: Array<{ date: string; startHour: number; endHour: number }>;
+    duration: number;
     attendees?: number;
     priority?: number;
   };
@@ -20,12 +19,22 @@ interface EventSchedulingRequest {
 }
 
 interface EventSchedulingResponse {
+  suggestions: Array<{
+    date: string;
+    startTime: string;
+    endTime: string;
+    score: number;
+    note?: string;
+  }>;
+}
+
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session || !session.user || !session.user.id) {
+    if (!session || !session.user || !(session.user as any).id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -43,7 +52,6 @@ interface EventSchedulingResponse {
 
       // Basic placeholder logic to generate simulated suggestions
       const simulatedSuggestions = [];
-      
       // Simulate a suggestion for the start date
       const firstSuggestionDate = new Date(startDate);
       const firstStartTime = '09:00';

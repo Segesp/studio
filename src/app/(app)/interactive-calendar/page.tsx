@@ -4,40 +4,33 @@ import { useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid'; // Corrected import path
 import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin, { DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/interaction';
+import interactionPlugin from '@fullcalendar/interaction';
 import { useQuery, useMutation, useQueryClient, InvalidateQueryFilters } from '@tanstack/react-query';
 import { EventForm } from '@/components/calendar/EventForm'; // Import EventForm
+import type { CalendarEventForm } from '@/components/calendar/EventForm';
 
 import { CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Assuming these are in your ui directory
 import { Loader } from '@/components/ui/loader';
 
-// Define the Event interface based on your API response structure
-interface Event {
+// Define the Event interface basado en la API (fechas string)
+interface CalendarEvent {
   id: string;
   title: string;
-  startDate: string; // Your API might return these names
+  startDate: string;
   endDate: string;
-  description?: string; // Added description
+  description: string; // Hacemos description obligatoria para evitar incompatibilidad
   color?: string;
   isPublic?: boolean;
-  // Add other properties based on your Event type
-}
-
-interface EventResizeEvent {
-  event: {
-    id: string;
-  };
-  // Include other event properties as needed
 }
 
 // Function to fetch events from the API
-const fetchEvents = async (): Promise<Event[]> => {
+const fetchEvents = async (): Promise<CalendarEvent[]> => {
   const res = await fetch('/api/events');
   if (!res.ok) {
     throw new Error('Failed to fetch events');
   }
-  const events: Event[] = await res.json();
+  const events: CalendarEvent[] = await res.json();
 
   // Map your API's startDate/endDate to FullCalendar's 'start'/'end'
   return events.map(event => ({
@@ -54,7 +47,7 @@ export default function InteractiveCalendarPage() {
 
   // Placeholder state for managing the event form modal
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null); // For editing
+  const [editingEvent, setEditingEvent] = useState<CalendarEventForm | null>(null); // For editing
 
   // Placeholder function to close the form modal
   const handleCloseForm = () => {
@@ -63,90 +56,109 @@ export default function InteractiveCalendarPage() {
   };
 
   // Placeholder callback functions for FullCalendar interactions
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    console.log('Date selected:', selectInfo);
-    // Open event form for creation with pre-filled dates
-    setEditingEvent({ id: '', title: '', startDate: selectInfo.startStr, endDate: selectInfo.endStr, color: 'blue', isPublic: false }); // Default values
+  const handleDateSelect = (selectInfo: any) => {
+    setEditingEvent({
+      id: '',
+      title: '',
+      startDate: selectInfo.start ? new Date(selectInfo.start) : new Date(),
+      endDate: selectInfo.end ? new Date(selectInfo.end) : new Date(),
+      description: '',
+      color: 'blue',
+      isPublic: false,
+    });
     setIsFormOpen(true);
   };
 
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    console.log('Event clicked:', clickInfo.event);
-    // Open event form for editing
-    // FullCalendar event object is slightly different, map it back if needed or pass directly
-    setEditingEvent(clickInfo.event as any); // Cast for now, proper mapping might be needed
+  const handleEventClick = (clickInfo: any) => {
+    const event = clickInfo.event;
+    setEditingEvent({
+      id: event.id,
+      title: event.title,
+      startDate: event.start ? new Date(event.start) : new Date(),
+      endDate: event.end ? new Date(event.end) : new Date(),
+      description: event.extendedProps?.description || '',
+      color: event.backgroundColor || 'blue',
+      isPublic: event.extendedProps?.isPublic ?? false,
+    });
     setIsFormOpen(true);
   };
 
   // Mutation for updating an event via drag/resize
-  const { mutate: updateEventMutate, isLoading: isUpdatingEvent, error: updateError } = useMutation({
-    mutationFn: async (updatedEvent: Pick<Event, 'id' | 'startDate' | 'endDate'>) => {
+  const updateEventMutation = useMutation({
+    mutationFn: async (updatedEvent: Pick<CalendarEvent, 'id' | 'startDate' | 'endDate'>) => {
       const res = await fetch(`/api/events/${updatedEvent.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-        }),
+        },
+        body: JSON.stringify(updatedEvent),
       });
-
       if (!res.ok) {
         const errorBody = await res.json().catch(() => ({ message: 'Failed to update event' }));
         throw new Error(errorBody.message || 'Failed to update event');
       }
-
       return res.json();
     },
     onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters); // Refetch events after successful update
-    },
-    onError: (err: Error) => {
-      console.error('Error updating event:', err.message);
-      // Optionally, add logic here to show a notification to the user
-      // Reverting the event position if the mutation fails
-      // FullCalendar's internal state might need to be manually reverted here if revert() was not called earlier
-      // or if you want to revert only on server-side failure.
+      queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
     },
   });
 
-  const handleEventDrop = (dropInfo: EventDropArg) => {
-    console.log('Event dropped:', dropInfo.event);
-    updateEventMutate({ id: dropInfo.event.id, startDate: dropInfo.event.startStr, endDate: dropInfo.event.endStr });
+  const handleEventDrop = (dropInfo: any) => {
+    updateEventMutation.mutate({
+      id: dropInfo.event.id,
+      startDate: dropInfo.event.start ? dropInfo.event.start.toISOString() : '',
+      endDate: dropInfo.event.end ? dropInfo.event.end.toISOString() : '',
+    });
   };
 
-  const handleEventResize = (resizeInfo: EventResizeEvent) => { // Use 'any' or more specific type from FullCalendar v6+
-    console.log('Event resized:', resizeInfo.event);
-    updateEventMutate({ id: resizeInfo.event.id, startDate: resizeInfo.event.startStr, endDate: resizeInfo.event.endStr });
+  const handleEventResize = (resizeInfo: any) => {
+    updateEventMutation.mutate({
+      id: resizeInfo.event.id,
+      startDate: resizeInfo.event.start ? resizeInfo.event.start.toISOString() : '',
+      endDate: resizeInfo.event.end ? resizeInfo.event.end.toISOString() : '',
+    });
   };
 
   // Mutation for creating or editing an event
-  const onFormSubmit = useMutation({
-    mutationFn: async (formData: Partial<Event>) => {
-      const method = formData.id ? 'PUT' : 'POST';
-      const url = formData.id ? `/api/events/${formData.id}` : '/api/events';
-
+  const formMutation = useMutation({
+    mutationFn: async (formData: Partial<CalendarEvent>) => {
+      // El formulario siempre envía fechas como string ISO, no es necesario typeof/instanceof
+      const payload = {
+        ...formData,
+        startDate: formData.startDate || '',
+        endDate: formData.endDate || '',
+      };
+      const method = payload.id ? 'PUT' : 'POST';
+      const url = payload.id ? `/api/events/${payload.id}` : '/api/events';
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
-        // Attempt to read the error message from the response body
         const errorBody = await res.json().catch(() => ({ message: 'Failed to process request' }));
         throw new Error(errorBody.message || 'Failed to process request');
       }
-
-      return res.json(); // Or return response body if needed
+      return res.json();
     },
     onSuccess: () => {
-      // Invalidate the events query to refetch events after a successful mutation
- queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
-      handleCloseForm(); // Close the form after successful submission
+      queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
+      handleCloseForm();
     },
   });
 
-  const { mutate: submitForm, isLoading: isSubmittingForm, error: formError } = onFormSubmit;
+  // Adaptador para convertir el formData del formulario (Date) a string antes de mutar
+  const handleFormSubmit = (formData: Partial<CalendarEventForm>) => {
+    formMutation.mutate({
+      ...formData,
+      startDate: formData.startDate ? (formData.startDate as Date).toISOString() : '',
+      endDate: formData.endDate ? (formData.endDate as Date).toISOString() : '',
+      description: formData.description || '',
+    } as CalendarEvent);
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -165,27 +177,35 @@ export default function InteractiveCalendarPage() {
             {isLoading && <Loader />}
             {error && <div className="text-red-500">Error loading events: {error.message}</div>}
             {!isLoading && !error && (
-              <div className="w-full"> {/* Container to give FullCalendar context */}
+              <div className="w-full">
                 <FullCalendar
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                  initialView="timeGridWeek" // Changed default view to timeGridWeek for better date selection demo
+                  initialView="timeGridWeek"
                   headerToolbar={{
                     left: 'prev,next today',
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek,timeGridDay'
                   }}
                   events={events || []}
-                  editable={true} // Allow dragging and resizing
-                  selectable={true} // Allow selecting dates
+                  editable={true}
+                  selectable={true}
                   select={handleDateSelect}
                   eventClick={handleEventClick}
+                  eventDrop={handleEventDrop}
+                  eventResize={handleEventResize}
                 />
-              </div> {/* Close the container div here */}
+              </div>
             )}
-             {/* Placeholder for Event Form Modal */}
             {isFormOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <EventForm isOpen={isFormOpen} onClose={handleCloseForm} onSubmit={submitForm} initialData={editingEvent} isLoading={isSubmittingForm} error={formError} />
+                <EventForm
+                  isOpen={isFormOpen}
+                  onClose={handleCloseForm}
+                  onSubmit={handleFormSubmit}
+                  initialData={editingEvent}
+                  isLoading={formMutation.isPending}
+                  error={formMutation.error}
+                />
               </div>
             )}
           </div>

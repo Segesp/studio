@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox'; // Assuming Event interface is defined here
+import { cn } from '@/lib/utils';
 
-// Define a local Event interface to match the expected structure
-interface Event {
-  id: string;
+// Define un tipo explícito para el formulario
+export interface CalendarEventForm {
+  id?: string;
   title: string;
   description: string;
   startDate: Date;
@@ -18,13 +19,12 @@ interface Event {
   color: string;
   isPublic: boolean;
 }
-import { cn } from '@/lib/utils'; // Assuming cn utility for classnames
 
-interface EventFormProps {
+export interface EventFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: Partial<Event>) => void;
-  initialData?: Event | null;
+  onSubmit: (formData: Partial<CalendarEventForm>) => void;
+  initialData?: CalendarEventForm | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -127,7 +127,7 @@ export function EventForm({ isOpen, onClose, onSubmit, initialData, isLoading, e
   const handleSubmit = () => {
     if (validateForm()) {
       // Prepare data for submission, converting date strings to Date objects or ISO strings
-      const dataToSubmit: Partial<Event> = {
+      const dataToSubmit: Partial<CalendarEventForm> = {
         id: initialData?.id, // Include ID if editing
         title: formData.title.trim(),
         description: formData.description.trim(),

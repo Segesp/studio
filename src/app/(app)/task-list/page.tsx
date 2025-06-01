@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ListChecks, KanbanSquare, Tag } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,10 +14,13 @@ import { Loader } from '@/components/ui/loader';
 interface Task {
   id: string;
   title: string;
-  status: string;
+  description?: string;
   dueDate?: string;
   priority?: number;
-  description?: string; // Added description for the form
+  tags?: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Function to fetch tasks from the API
@@ -36,15 +40,14 @@ interface TaskFormData extends Partial<Task> {
 
 export default function TaskListPage() {
   const queryClient = useQueryClient();
-
   const { data: tasks, isLoading, error } = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks });
-
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Ajuste para que editingTask nunca sea null, sino undefined
+  const [editingTask, setEditingTask] = useState<Partial<Task>>();
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
-    setEditingTask(null); // Reset editing task when form is closed
+    setEditingTask(undefined); // Reset editing task when form is closed
   };
 
   // Mutation for updating task status
@@ -83,6 +86,10 @@ export default function TaskListPage() {
     },
   });
 
+  return (
+    <div>
+      <Card className="shadow-xl">
+        <CardHeader>
           <div className="flex items-center space-x-3">
             <ListChecks className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-headline">Task Management</CardTitle>
@@ -93,7 +100,7 @@ export default function TaskListPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed border-border p-12 text-center">
-            <Image 
+            <img 
               src="https://placehold.co/800x400.png" 
               alt="Task list placeholder" 
               width={400} 
@@ -107,7 +114,6 @@ export default function TaskListPage() {
               Kanban views, status tracking, and smart notifications.
             </p>
           </div>
-
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Card className="bg-background/50">
               <CardHeader className="flex flex-row items-center space-x-2 pb-2">
@@ -134,19 +140,14 @@ export default function TaskListPage() {
           </div>
         </CardContent>
       </Card>
-
       <h1 className="text-3xl font-bold">Task List</h1>
-
-      <Button className="mb-4" onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
+      <button className="mb-4 flex items-center" onClick={() => { setEditingTask(undefined); setIsFormOpen(true); }}>
         <PlusCircle className="mr-2 h-4 w-4" /> Add Task
-      </Button>
-
+      </button>
       {isLoading && <Loader />}
-
       {error && (
         <div className="text-red-500">Error loading tasks: {error.message}</div>
       )}
-
       {!isLoading && !error && tasks && (
         tasks.length === 0 ? (
           <div className="text-center text-muted-foreground">
@@ -159,35 +160,28 @@ export default function TaskListPage() {
                 key={task.id}
                 task={task}
                 onToggleStatus={(id, status) => onToggleStatus.mutate({ id, status })}
-                onEdit={setEditingTask} // Pass the task object to setEditingTask
+                onEdit={setEditingTask}
                 onDelete={(id) => onDelete.mutate(id)}
               />
             ))}
           </div>
         )
       )}
-
-      {/* Task Form Dialog/Modal */}
       <TaskForm
         isOpen={isFormOpen}
         onClose={handleCloseForm}
         onSubmit={(formData) => {
-          // Determine if it's a create or edit operation
           if (formData.id) {
             // Edit operation
             console.log('Submit Edit Mutation Placeholder:', formData);
-             // Placeholder for edit mutation call
-             // onFormSubmit.mutate(formData);
           } else {
             // Create operation
             console.log('Submit Create Mutation Placeholder:', formData);
-             // Placeholder for create mutation call
-             // onFormSubmit.mutate(formData);
           }
-          // Call the actual mutation function when implemented
-           // onFormSubmit.mutate(formData);
         }}
         initialData={editingTask}
+        isLoading={false}
+        error={null}
       />
     </div>
   );

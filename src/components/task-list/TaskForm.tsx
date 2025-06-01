@@ -13,15 +13,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 
 import { Loader2 as Loader } from 'lucide-react'; // Using lucide-react for a simple spinner
-// Assuming a basic Task interface is defined elsewhere or can be defined here
+// Unifico la definición de Task para que incluya createdAt y updatedAt opcionales
 interface Task {
-  id?: string; // Optional for new tasks
+  id?: string;
   title: string;
   description?: string;
-  dueDate?: string; // ISO string or similar
+  dueDate?: string;
   priority?: number;
   tags?: string[];
-  status?: string; // Optional, might not be set by form
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface FormErrors {
@@ -125,17 +127,17 @@ export function TaskForm({ isOpen, onClose, onSubmit, initialData, isLoading, er
       dueDate: formData?.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
       // Ensure tags are an array of strings
       tags: Array.isArray(formData.tags) ? formData.tags : [],
-      // Priority is already handled as a number by handlePriorityChange
-
+      // Priority is already handled as un número por handlePriorityChange
+    };
     onSubmit(dataToSubmit);
-    // onClose(); // Consider if you want to close the form here or in the parent after success
+    // onClose(); // Considera si quieres cerrar el formulario aquí o en el padre después del éxito
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{initialData ? 'Edit Task' : 'Add Task'}</DialogTitle>
+          <DialogTitle>{initialData && initialData.id ? 'Edit Task' : 'Add Task'}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">

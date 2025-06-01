@@ -10,17 +10,16 @@ import * as Y from 'yjs'; // Import Yjs
 import { WebsocketProvider } from 'y-websocket'; // Import WebsocketProvider
 import { useSession } from 'next-auth/react'; // Import useSession
 
-import { // Import necessary components from ui
- Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Loader,
-  Label,
-  Input,
-} from '@/components/ui'; // Assuming these are in an index file
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { DialogContent } from '@/components/ui/dialog';
+import { DialogHeader } from '@/components/ui/dialog';
+import { DialogTitle } from '@/components/ui/dialog';
+import { DialogFooter } from '@/components/ui/dialog';
+import { Loader } from '@/components/ui/loader';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils'; // Import cn for conditional class names
 
 // Define a basic Doc interface for frontend use
 interface Doc {
@@ -64,13 +63,11 @@ export default function CollaborativeDocsPage() {
   const [provider, setProvider] = useState<WebsocketProvider | null>(null); // State for Yjs provider
 
 
-  const { data: docs, isLoading: isLoadingDocs, error: docsError } = useQuery(
-    { 
- queryKey: ['collaborativeDocs'], // Add queryKey here
- initialData: [] as Doc[], // Provide initial data as an empty array of Docs
-    },
-    fetchDocs
-  );
+  const { data: docs, isLoading: isLoadingDocs, error: docsError } = useQuery({
+    queryKey: ['collaborativeDocs'],
+    initialData: [] as Doc[],
+    queryFn: fetchDocs,
+  });
 
    // Effect to initialize Yjs and TipTap editor when selectedDoc changes
   useEffect(() => {
@@ -89,7 +86,8 @@ export default function CollaborativeDocsPage() {
         newYdoc,
          { // Optional: Add auth parameters if your WS server requires
             params: {
-                token: session?.accessToken // Assuming accessToken is available in session
+                // token: session?.accessToken // Assuming accessToken is available in session
+                // Si necesitas un token, obténlo de otra forma o elimina esta línea si no es necesario
             }
          }
       );
@@ -158,7 +156,7 @@ export default function CollaborativeDocsPage() {
     // content: \'<p>Loading document...</p>\',
      editorProps: {
          attributes: {
-             class: \'prose dark:prose-invert max-w-none focus:outline-none\', // Basic Tailwind prose styles
+             className: 'prose dark:prose-invert max-w-none focus:outline-none', // Basic Tailwind prose styles
          },
      },
      // Dependency array for useEditor
