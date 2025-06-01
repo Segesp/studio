@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { SessionProviderWrapper } from '@/components/layout/session-provider-wrapper';
+import { WebSocketProvider } from '@/components/providers/websocket-provider';
 // import { getServerSession } from 'next-auth/next'; // Not needed here for App Router root layout
 // import { authOptions } from '@/pages/api/auth/[...nextauth]'; // Not needed here
 
@@ -30,9 +31,11 @@ export default async function RootLayout({
       </head>
       <body className="font-body antialiased">
         <SessionProviderWrapper>
-          <SidebarProvider defaultOpen={true}>
-            {children}
-          </SidebarProvider>
+          <WebSocketProvider>
+            <SidebarProvider defaultOpen={true}>
+              {children}
+            </SidebarProvider>
+          </WebSocketProvider>
           <Toaster />
         </SessionProviderWrapper>
       </body>

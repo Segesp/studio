@@ -1,25 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react'; // Import useEffect
-import { useQuery } from '@tanstack/react-query';
-import { useEditor, EditorContent } from '@tiptap/react'; // Import TipTap hooks and components
-import Collaboration from '@tiptap/extension-collaboration'; // Import TipTap Collaboration extension
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'; // Import TipTap CollaborationCursor extension
-import StarterKit from '@tiptap/starter-kit'; // Import TipTap StarterKit
-import * as Y from 'yjs'; // Import Yjs
-import { WebsocketProvider } from 'y-websocket'; // Import WebsocketProvider
-import { useSession } from 'next-auth/react'; // Import useSession
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Focus from '@tiptap/extension-focus';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import * as Y from 'yjs';
 
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
-import { DialogContent } from '@/components/ui/dialog';
-import { DialogHeader } from '@/components/ui/dialog';
-import { DialogTitle } from '@/components/ui/dialog';
-import { DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Loader } from '@/components/ui/loader';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils'; // Import cn for conditional class names
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { FileText, Plus, Save, Users, Clock, Wifi } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useDocumentCollaboration } from '@/hooks/use-websocket';
+import { ConnectionStatus } from '@/components/sync/connection-status';
+import { useSession } from 'next-auth/react';
 
 // Define a basic Doc interface for frontend use
 interface Doc {
@@ -28,6 +33,19 @@ interface Doc {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  owner?: {
+    name: string;
+    email: string;
+    image?: string;
+  };
+  versions?: DocVersion[];
+}
+
+interface DocVersion {
+  id: string;
+  content: any;
+  createdAt: string;
+  createdBy: string;
 }
 
 // Define an asynchronous function to fetch documents
@@ -39,231 +57,441 @@ const fetchDocs = async (): Promise<Doc[]> => {
   return res.json();
 };
 
-// Function to fetch document content (latest version) - Placeholder for now
-const fetchDocContent = async (docId: string): Promise<any> => {
-    // This should fetch the content from your /api/docs/[id] or /api/docs/[id]/versions endpoint
-    // For now, returning empty object
-    console.log("Fetching content for doc:", docId);
-    const res = await fetch(`/api/docs/${docId}?include=versions&latest=true`); // Example fetch, adjust according to your API
-     if (!res.ok) {
-        throw new Error('Failed to fetch document content');
-    }
-    const doc = await res.json();
-    // Assuming your API returns the latest version content within the doc object
-    return doc.versions?.[0]?.content || {}; // Adjust based on your actual API response structure
+// Function to fetch document content (latest version)
+const fetchDocContent = async (docId: string): Promise<string> => {
+  const res = await fetch(`/api/docs/${docId}?include=versions&latest=true`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch document content');
+  }
+  const doc = await res.json();
+  const latestVersion = doc.versions?.[0];
+  return latestVersion?.content || '<p>Start writing...</p>';
 };
 
 
 export default function CollaborativeDocsPage() {
-  const { data: session } = useSession(); // Get session for collaboration cursor
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: session } = useSession();
+  
   const [selectedDoc, setSelectedDoc] = useState<Doc | null>(null);
   const [isCreateDocModalOpen, setIsCreateDocModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState('');
-  const [ydoc, setYdoc] = useState<Y.Doc | null>(null); // State for Yjs doc
-  const [provider, setProvider] = useState<WebsocketProvider | null>(null); // State for Yjs provider
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
 
+  // Real-time collaboration
+  const { 
+    collaborators, 
+    documentState, 
+    sendUpdate, 
+    sendPresence, 
+    connected: wsConnected 
+  } = useDocumentCollaboration(selectedDoc?.id || null);
 
   const { data: docs, isLoading: isLoadingDocs, error: docsError } = useQuery({
     queryKey: ['collaborativeDocs'],
-    initialData: [] as Doc[],
     queryFn: fetchDocs,
   });
 
-   // Effect to initialize Yjs and TipTap editor when selectedDoc changes
+  // Fetch document content when a document is selected
+  const { data: docContent, isLoading: isLoadingContent } = useQuery({
+    queryKey: ['docContent', selectedDoc?.id],
+    queryFn: () => fetchDocContent(selectedDoc!.id),
+    enabled: !!selectedDoc,
+  });
+
+  // Initialize Yjs document when selectedDoc changes
   useEffect(() => {
     if (selectedDoc) {
-      // Cleanup previous provider if exists
-      provider?.destroy();
-      ydoc?.destroy(); // Destroy previous ydoc
-
       const newYdoc = new Y.Doc();
       setYdoc(newYdoc);
-
-      // Initialize WebsocketProvider - REPLACE WITH YOUR ACTUAL WS SERVER URL
-      const newProvider = new WebsocketProvider(
-        'wss://your-yjs-websocket-server.com', // Replace with your WebSocket server URL
-        selectedDoc.id, // Use document ID as the room name
-        newYdoc,
-         { // Optional: Add auth parameters if your WS server requires
-            params: {
-                // token: session?.accessToken // Assuming accessToken is available in session
-                // Si necesitas un token, obténlo de otra forma o elimina esta línea si no es necesario
-            }
-         }
-      );
-       setProvider(newProvider);
-
-      // Load initial content (placeholder logic)
-      // In a real app, you'd fetch the latest version from your backend
-       fetchDocContent(selectedDoc.id).then(initialContent => {
-           // Apply initial content to the ydoc
-           // Depending on your CRDT content format, this might involve
-           // loading a snapshot or applying updates.
-           // For simplicity, this is a placeholder. You might need a Yjs specific loading mechanism.
-           console.log("Loaded initial content:", initialContent);
-            // Example: if initialContent is a Yjs update binary
-           // Y.applyUpdate(newYdoc, new Uint8Array(initialContent));
-           // Or if your editor loads content from a plain text/JSON representation of the CRDT state
-           // Editor instance will need to load this content.
-       }).catch(err => {
-           console.error("Failed to load initial document content:", err);
-       });
-
-
-      // Cleanup provider and ydoc when component unmounts or selectedDoc changes
+      
+      // Set up update handler for real-time sync
+      const updateHandler = (update: Uint8Array) => {
+        sendUpdate(update);
+      };
+      
+      newYdoc.on('update', updateHandler);
+      
+      // Apply initial document state if available
+      if (documentState) {
+        Y.applyUpdate(newYdoc, documentState);
+      }
+      
       return () => {
-        newProvider.destroy();
+        newYdoc.off('update', updateHandler);
         newYdoc.destroy();
-         setProvider(null);
-         setYdoc(null);
       };
     } else {
-         // Cleanup provider and ydoc if selectedDoc becomes null
-        provider?.destroy();
-        ydoc?.destroy();
-        setProvider(null);
-        setYdoc(null);
+      setYdoc(null);
     }
-  }, [selectedDoc, session]); // Re-run effect when selectedDoc or session changes
+  }, [selectedDoc, documentState, sendUpdate]);
 
-
-  // Configure TipTap editor
-   const editor = useEditor({
+  // Configure TipTap editor with collaboration
+  const editor = useEditor({
     extensions: [
-      StarterKit, // Basic extensions like bold, italic, lists
-      Collaboration.configure({
-        document: ydoc as Y.Doc, // Pass the Yjs document
-      }),
-      CollaborationCursor.configure({
-        provider: provider as WebsocketProvider, // Pass the WebsocketProvider
-        user: {
-          name: session?.user?.name || 'Anonymous', // Display user name
-          color: '#ffcc00', // Placeholder color, use a random color function in real app
+      StarterKit.configure({
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
         },
-         // Optional: disable cursors if provider or ydoc is null
-         render(user) {
-             const cursorBuilder = document.createElement('span');
-             cursorBuilder.style.cssText = `border-left: 2px solid ${user.color}; border-bottom: 2px solid ${user.color}; position: absolute; pointer-events: none;`;
-             const label = document.createElement('span');
-             label.style.cssText = `background-color: ${user.color}; color: white; font-size: 0.75rem; line-height: 1rem; padding: 2px 4px; white-space: nowrap;`;
-             label.innerText = user.name;
-             cursorBuilder.appendChild(label);
-             return cursorBuilder;
-         }
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        history: false, // Disable history when using collaboration
       }),
+      TextStyle,
+      Color,
+      Focus.configure({
+        className: 'has-focus',
+        mode: 'all',
+      }),
+      Placeholder.configure({
+        placeholder: 'Start writing your document...',
+      }),
+      // Add collaboration extensions when we have a Yjs document
+      ...(ydoc ? [
+        Collaboration.configure({
+          document: ydoc,
+        }),
+        CollaborationCursor.configure({
+          provider: {
+            awareness: {
+              setLocalStateField: () => {},
+              on: () => {},
+              off: () => {},
+              getStates: () => new Map(),
+            } as any,
+          },
+          user: {
+            name: session?.user?.name || 'Anonymous',
+            color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+          },
+        }),
+      ] : []),
     ],
-    // Set initial content here if not loading from Yjs document directly
-    // content: \'<p>Loading document...</p>\',
-     editorProps: {
-         attributes: {
-             className: 'prose dark:prose-invert max-w-none focus:outline-none', // Basic Tailwind prose styles
-         },
-     },
-     // Dependency array for useEditor
-  }, [ydoc, provider, session]); // Re-initialize editor when ydoc, provider or session changes
+    content: !ydoc ? (docContent || '<p>Loading...</p>') : undefined,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[500px] p-6',
+      },
+    },
+    onUpdate: ({ editor }) => {
+      if (!ydoc) {
+        setHasUnsavedChanges(true);
+      }
+      
+      // Send presence info for cursor position
+      if (wsConnected && session?.user) {
+        sendPresence(session.user, editor.state.selection);
+      }
+    },
+  }, [ydoc, docContent, wsConnected, session?.user, sendPresence]);
 
+  // Update editor content when docContent changes (only for non-collaborative mode)
+  useEffect(() => {
+    if (editor && docContent && !isLoadingContent && !ydoc) {
+      editor.commands.setContent(docContent);
+      setHasUnsavedChanges(false);
+    }
+  }, [editor, docContent, isLoadingContent, ydoc]);
+
+  // Auto-save functionality (only for non-collaborative mode)
+  useEffect(() => {
+    if (!hasUnsavedChanges || !selectedDoc || !editor || ydoc) return;
+
+    const timer = setTimeout(() => {
+      saveDocument();
+    }, 2000); // Auto-save after 2 seconds of inactivity
+
+    return () => clearTimeout(timer);
+  }, [hasUnsavedChanges, selectedDoc, editor, ydoc]);
+
+  // Create document mutation
+  const createDocMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await fetch('/api/docs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error('Failed to create document');
+      return res.json();
+    },
+    onSuccess: (newDoc) => {
+      queryClient.invalidateQueries({ queryKey: ['collaborativeDocs'] });
+      setSelectedDoc(newDoc);
+      setIsCreateDocModalOpen(false);
+      setNewDocTitle('');
+      toast({
+        title: "Document created",
+        description: `"${newDoc.title}" has been created successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create document. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Save document mutation
+  const saveDocMutation = useMutation({
+    mutationFn: async ({ docId, content }: { docId: string; content: string }) => {
+      const res = await fetch(`/api/docs/${docId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error('Failed to save document');
+      return res.json();
+    },
+    onSuccess: () => {
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+      setIsSaving(false);
+      toast({
+        title: "Document saved",
+        description: "Your changes have been saved successfully.",
+      });
+    },
+    onError: () => {
+      setIsSaving(false);
+      toast({
+        title: "Save failed",
+        description: "Failed to save document. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveDocument = useCallback(() => {
+    if (!selectedDoc || !editor || isSaving || ydoc) return; // Don't save if using real-time collaboration
+    
+    setIsSaving(true);
+    const content = editor.getHTML();
+    saveDocMutation.mutate({ docId: selectedDoc.id, content });
+  }, [selectedDoc, editor, isSaving, ydoc, saveDocMutation]);
+
+  const handleCreateDoc = () => {
+    if (!newDocTitle.trim()) return;
+    createDocMutation.mutate(newDocTitle.trim());
+  };
 
   const handleCloseCreateDocModal = () => {
     setIsCreateDocModalOpen(false);
     setNewDocTitle('');
   };
 
-  // Placeholder function for creating a document
-  const onCreateDocSubmit = (title: string) => {
-    console.log('Creating document with title:', title);
-    // TODO: Implement actual mutation to POST /api/docs
-    handleCloseCreateDocModal();
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
-    <div className="flex h-screen"> {/* Adjusted height for full screen */}
-      {/* List Section (Sidebar) */}
-      <div className="w-64 flex-none border-r p-4 bg-background overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">Your Documents</h2>
-        <Button className="mb-4 w-full" onClick={() => setIsCreateDocModalOpen(true)}>
-          Create New Document
-        </Button>
-        {isLoadingDocs && (
-          <div className="flex justify-center"><Loader size={24} /></div>
-        )}
-        {docsError && (
-          <div className="text-red-500 text-sm">Error loading docs: {docsError.message}</div>
-        )}
-         {docs && Array.isArray(docs) && docs.length === 0 && !isLoadingDocs && (
-            <p className="text-muted-foreground text-sm text-center">No documents yet. Click above to create one.</p>
- )}
-        {docs && Array.isArray(docs) && (
-          <div className="space-y-2">
-            {docs.map((doc: Doc) => (
-              <button
- // Using a button for accessibility and correct styling
-
-                key={doc.id}
-                className={`w-full text-left p-2 rounded-md hover:bg-accent transition-colors ${
-                  selectedDoc?.id === doc.id ? 'bg-accent text-accent-foreground' : 'text-foreground'
-                }`}
-                onClick={() => setSelectedDoc(doc)}
-              >
-                {doc.title}
-              </button>
-            ))}
+    <div className="flex h-screen bg-background">
+      {/* Documents Sidebar */}
+      <div className="w-80 flex-none border-r bg-card overflow-hidden flex flex-col">
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              Documents
+            </h2>
+            <Button size="sm" onClick={() => setIsCreateDocModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              New
+            </Button>
           </div>
-        )}
-      </div>
-
-      {/* Editor Section (Main Content) */}
-      <div className="flex-1 flex flex-col bg-card overflow-hidden"> {/* Use flex-col for title + editor layout */}
- {selectedDoc ? (
-           <> {/* Use fragment if multiple top-level elements */}
-            <div className="p-6 border-b bg-background"> {/* Title section */}
-                <h2 className="text-2xl font-bold">{selectedDoc.title}</h2>
-                {/* Optional: Add last edited info here */}
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {isLoadingDocs && (
+            <div className="flex justify-center p-8">
+              <Loader />
             </div>
-             <div className="flex-1 overflow-y-auto p-6"> {/* Editor content area */}
-               {/* Placeholder for Rich Text Editor */}
-                 {editor ? (
-                    <EditorContent editor={editor} />
-                 ) : (
-                     <div className="flex h-full items-center justify-center">
-                         <Loader size={32} /> {/* Show loader while editor initializes */}
-                     </div>
-                 )}
-             </div>
-           </>
+          )}
+          
+          {docsError && (
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-destructive text-sm">Error loading docs: {docsError.message}</p>
+            </div>
+          )}
+          
+          {docs && docs.length === 0 && !isLoadingDocs && (
+            <div className="text-center p-8">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground text-sm">No documents yet.</p>
+              <p className="text-muted-foreground text-sm">Create your first document to start collaborating!</p>
+            </div>
+          )}
+          
+          {docs && docs.map((doc: Doc) => (
+            <Card
+              key={doc.id}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md",
+                selectedDoc?.id === doc.id ? "ring-2 ring-primary bg-primary/5" : ""
+              )}
+              onClick={() => setSelectedDoc(doc)}
+            >
+              <CardContent className="p-4">
+                <h3 className="font-medium truncate mb-2">{doc.title}</h3>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Updated {formatDate(doc.updatedAt)}</span>
+                  {doc.owner && (
+                    <div className="flex items-center">
+                      <Users className="h-3 w-3 mr-1" />
+                      <span>{doc.owner.name}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Editor Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {selectedDoc ? (
+          <>
+            {/* Document Header */}
+            <div className="p-6 border-b bg-card flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold mb-1">{selectedDoc.title}</h1>
+                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                  <span className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    Last updated {formatDate(selectedDoc.updatedAt)}
+                  </span>
+                  {lastSaved && !ydoc && (
+                    <span>Saved {formatDate(lastSaved.toISOString())}</span>
+                  )}
+                  <ConnectionStatus size="sm" />
+                  {collaborators.length > 0 && (
+                    <span className="flex items-center">
+                      <Users className="h-4 w-4 mr-1" />
+                      {collaborators.length} colaborador{collaborators.length > 1 ? 'es' : ''} en línea
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                {hasUnsavedChanges && !ydoc && (
+                  <Badge variant="secondary">Unsaved changes</Badge>
+                )}
+                {isSaving && (
+                  <Badge variant="outline" className="flex items-center">
+                    <Loader className="h-3 w-3 mr-1" />
+                    Saving...
+                  </Badge>
+                )}
+                {ydoc && wsConnected && (
+                  <Badge variant="default" className="flex items-center">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Real-time sync
+                  </Badge>
+                )}
+                {!ydoc && (
+                  <Button
+                    onClick={saveDocument}
+                    disabled={!hasUnsavedChanges || isSaving}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Editor Content */}
+            <div className="flex-1 overflow-y-auto bg-background">
+              {isLoadingContent ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader />
+                </div>
+              ) : editor ? (
+                <div className="max-w-4xl mx-auto">
+                  <EditorContent editor={editor} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">Loading editor...</p>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="flex h-full items-center justify-center p-6">
-            <p className="text-muted-foreground text-lg text-center">
-              Select a document from the list or create a new one to start collaborating.
-            </p>
+          <div className="flex-1 flex items-center justify-center bg-background">
+            <div className="text-center">
+              <FileText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Select a document to start editing</h3>
+              <p className="text-muted-foreground mb-6">
+                Choose a document from the sidebar or create a new one to begin collaborating.
+              </p>
+              <Button onClick={() => setIsCreateDocModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Document
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Create New Document Dialog */}
+      {/* Create Document Dialog */}
       <Dialog open={isCreateDocModalOpen} onOpenChange={setIsCreateDocModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Document</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="newDocTitle" className="text-right">
-                Title
-              </Label>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="newDocTitle">Document Title</Label>
               <Input
                 id="newDocTitle"
                 value={newDocTitle}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewDocTitle(e.target.value)}
-                className="col-span-3"
+                onChange={(e) => setNewDocTitle(e.target.value)}
+                placeholder="Enter document title..."
+                className="mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newDocTitle.trim()) {
+                    handleCreateDoc();
+                  }
+                }}
               />
             </div>
- </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseCreateDocModal}>
               Cancel
             </Button>
-            <Button onClick={() => onCreateDocSubmit(newDocTitle)}>
-              Create
+            <Button 
+              onClick={handleCreateDoc}
+              disabled={!newDocTitle.trim() || createDocMutation.isPending}
+            >
+              {createDocMutation.isPending ? (
+                <>
+                  <Loader className="h-4 w-4 mr-2" />
+                  Creating...
+                </>
+              ) : (
+                'Create Document'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

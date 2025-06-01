@@ -36,7 +36,24 @@ const SmartEventSchedulingOutputSchema = z.object({
 export type SmartEventSchedulingOutput = z.infer<typeof SmartEventSchedulingOutputSchema>;
 
 export async function smartEventScheduling(input: SmartEventSchedulingInput): Promise<SmartEventSchedulingOutput> {
-  return smartEventSchedulingFlow(input);
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your-google-api-key-here') {
+      throw new Error('AI features are unavailable. Please configure GOOGLE_API_KEY in your environment variables.');
+    }
+    return await smartEventSchedulingFlow(input);
+  } catch (error) {
+    // Provide fallback response when AI is not available
+    console.error('Smart Event Scheduling AI Error:', error);
+    
+    // Generate a basic fallback suggestion
+    const participants = input.participants.join(', ');
+    const duration = input.durationMinutes;
+    
+    return {
+      suggestedTime: 'Tomorrow at 2:00 PM (AI suggestion unavailable - please configure Google API key)',
+      reasoning: `Fallback suggestion for ${duration}-minute meeting with ${participants}. For intelligent AI-powered scheduling suggestions, please configure your Google API key in the environment variables.`
+    };
+  }
 }
 
 const prompt = ai.definePrompt({

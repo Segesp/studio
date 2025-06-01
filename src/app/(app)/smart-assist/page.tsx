@@ -1,8 +1,10 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Cpu, CalendarClock, ListFilter, BellPlus, ArrowRight } from "lucide-react";
+import { Cpu, CalendarClock, ListFilter, BellPlus, ArrowRight, Shield } from "lucide-react";
 import Link from "next/link";
+import { AIConnectionTest } from "@/components/smart-assist/ai-connection-test";
+import { AIDemoShowcase } from "@/components/smart-assist/ai-demo-showcase";
 
 interface SmartAssistFeature {
   title: string;
@@ -34,6 +36,13 @@ const features: SmartAssistFeature[] = [
     href: "/smart-assist/deadline-reminders",
     cta: "Set Reminders",
   },
+  {
+    title: "AI Administration",
+    description: "Monitor and manage your AI features, usage statistics, and system configuration.",
+    icon: Shield,
+    href: "/smart-assist/admin",
+    cta: "Manage AI",
+  },
 ];
 
 export default function SmartAssistPage() {
@@ -50,6 +59,10 @@ export default function SmartAssistPage() {
           </CardDescription>
         </CardHeader>
       </Card>
+
+      <AIConnectionTest />
+
+      <AIDemoShowcase />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature) => (

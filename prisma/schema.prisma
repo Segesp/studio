@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -29,12 +29,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -65,7 +65,7 @@ model Task {
   status      String    @default("pending") // e.g., "pending", "in_progress", "done"
   priority    Int       @default(0)         // e.g., 0: Low, 1: Medium, 2: High, 3: Urgent
   dueDate     DateTime?
-  tags        String[] // array of labels
+  tags        String? // comma-separated labels
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   userId      String
@@ -100,7 +100,7 @@ model DocVersion {
   id        String   @id @default(uuid())
   docId     String
   doc       Doc      @relation(fields: [docId], references: [id], onDelete: Cascade)
-  content   Json // CRDT structure or snapshot
+  content   String // JSON string for CRDT structure or snapshot
   createdAt DateTime @default(now())
   createdBy String // userId
 }

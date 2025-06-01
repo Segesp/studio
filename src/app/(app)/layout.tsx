@@ -17,6 +17,7 @@ import { NavLinks } from '@/components/layout/nav-links';
 import { Loader } from '@/components/ui/loader';
 import { UserCircle } from 'lucide-react';
 import { LogoutButton } from '@/components/layout/logout-button';
+import { RealtimeNotifications } from '@/components/sync/realtime-notifications';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   let session;
@@ -83,7 +84,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <SidebarInset className="flex-1 bg-background">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-md md:justify-end">
            <div className="md:hidden"> </div>
-           <SidebarTrigger className="hidden md:flex" />
+           <div className="flex items-center space-x-4">
+             <RealtimeNotifications />
+             <SidebarTrigger className="hidden md:flex" />
+           </div>
         </header>
         <main className="flex-1 p-6">
           <Suspense fallback={

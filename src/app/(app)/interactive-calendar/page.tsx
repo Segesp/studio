@@ -1,16 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid'; // Corrected import path
+import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useQuery, useMutation, useQueryClient, InvalidateQueryFilters } from '@tanstack/react-query';
-import { EventForm } from '@/components/calendar/EventForm'; // Import EventForm
+import { EventForm } from '@/components/calendar/EventForm';
 import type { CalendarEventForm } from '@/components/calendar/EventForm';
+import { useCalendarSync } from '@/hooks/use-websocket';
+import { useSession } from 'next-auth/react';
+import { ConnectionStatus } from '@/components/sync/connection-status';
 
-import { CalendarDays } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Assuming these are in your ui directory
+import { CalendarDays, Plus, Filter, Eye, EyeOff } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Loader } from '@/components/ui/loader';
 
 // Define the Event interface basado en la API (fechas string)
@@ -19,9 +25,17 @@ interface CalendarEvent {
   title: string;
   startDate: string;
   endDate: string;
-  description: string; // Hacemos description obligatoria para evitar incompatibilidad
+  description: string;
   color?: string;
   isPublic?: boolean;
+  start?: string;
+  end?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  extendedProps?: {
+    description: string;
+    isPublic?: boolean;
+  };
 }
 
 // Function to fetch events from the API
@@ -37,22 +51,57 @@ const fetchEvents = async (): Promise<CalendarEvent[]> => {
     ...event,
     start: event.startDate,
     end: event.endDate,
+    backgroundColor: event.color || '#3b82f6',
+    borderColor: event.color || '#3b82f6',
+    extendedProps: {
+      description: event.description,
+      isPublic: event.isPublic,
+    },
   }));
 };
 
 export default function InteractiveCalendarPage() {
-  // Get query client
-  const queryClient = useQueryClient(); // Get query client
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const { data: events, isLoading, error } = useQuery({ queryKey: ['events'], queryFn: fetchEvents });
 
-  // Placeholder state for managing the event form modal
+  // State management
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CalendarEventForm | null>(null); // For editing
+  const [editingEvent, setEditingEvent] = useState<CalendarEventForm | null>(null);
+  const [showPublicOnly, setShowPublicOnly] = useState(false);
+  const [currentView, setCurrentView] = useState('timeGridWeek');
+
+  // Real-time calendar synchronization
+  const { syncEventUpdate, syncEventCreation, syncEventDeletion, eventUpdates, connected } = useCalendarSync(session?.user?.id || null);
+
+  // Listen for real-time event updates from other clients
+  useEffect(() => {
+    if (!connected || eventUpdates.length === 0) return;
+
+    // Invalidate queries when receiving real-time updates from other clients
+    const latestUpdate = eventUpdates[eventUpdates.length - 1];
+    console.log('Received real-time event update:', latestUpdate);
+    
+    // Refresh events when we receive updates from other clients
+    queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
+    
+  }, [eventUpdates, connected, queryClient]);
+
+    // Filter events based on public filter
+  const filteredEvents = events?.filter(event => 
+    showPublicOnly ? event.extendedProps?.isPublic : true
+  ) || [];
 
   // Placeholder function to close the form modal
   const handleCloseForm = () => {
     setIsFormOpen(false);
-    setEditingEvent(null); // Reset editing event
+    setEditingEvent(null);
+  };
+
+  // Create new event
+  const handleAddEvent = () => {
+    setEditingEvent(null);
+    setIsFormOpen(true);
   };
 
   // Placeholder callback functions for FullCalendar interactions
@@ -99,8 +148,11 @@ export default function InteractiveCalendarPage() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
+      
+      // Sync event update to other clients
+      syncEventUpdate(data);
     },
   });
 
@@ -144,9 +196,16 @@ export default function InteractiveCalendarPage() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['events'] } as InvalidateQueryFilters);
       handleCloseForm();
+      
+      // Sync event to other clients
+      if (variables.id) {
+        syncEventUpdate(data);
+      } else {
+        syncEventCreation(data);
+      }
     },
   });
 
@@ -161,56 +220,116 @@ export default function InteractiveCalendarPage() {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="space-y-6">
       <Card className="shadow-xl">
         <CardHeader>
-          <div className="flex items-center space-x-3">
-            <CalendarDays className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-headline">Interactive Calendar</CardTitle> 
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <CalendarDays className="h-8 w-8 text-primary" />
+              <div>
+                <CardTitle className="text-3xl font-headline">Interactive Calendar</CardTitle>
+                <CardDescription className="text-lg">
+                  Schedule and manage your events with real-time synchronization.
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <ConnectionStatus />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPublicOnly(!showPublicOnly)}
+                className="flex items-center space-x-2"
+              >
+                {showPublicOnly ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                <span>{showPublicOnly ? 'Show All' : 'Public Only'}</span>
+              </Button>
+              <Button
+                onClick={handleAddEvent}
+                className="flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Event</span>
+              </Button>
+            </div>
           </div>
-          <CardDescription className="text-lg">
-            Manage your schedule with day, week, and month views.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed border-border p-12 text-center">
-            {isLoading && <Loader />}
-            {error && <div className="text-red-500">Error loading events: {error.message}</div>}
-            {!isLoading && !error && (
-              <div className="w-full">
+          {isLoading && (
+            <div className="flex items-center justify-center p-12">
+              <Loader />
+            </div>
+          )}
+          
+          {error && (
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-destructive font-medium">Error loading events</p>
+              <p className="text-destructive/80 text-sm">{error.message}</p>
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary" className="flex items-center space-x-1">
+                    <span className="w-2 h-2 bg-primary rounded-full"></span>
+                    <span>{filteredEvents.length} events</span>
+                  </Badge>
+                  {showPublicOnly && (
+                    <Badge variant="outline">Showing public events only</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full bg-background rounded-lg border overflow-hidden">
                 <FullCalendar
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                  initialView="timeGridWeek"
+                  initialView={currentView}
                   headerToolbar={{
                     left: 'prev,next today',
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek,timeGridDay'
                   }}
-                  events={events || []}
+                  events={filteredEvents}
                   editable={true}
                   selectable={true}
+                  selectMirror={true}
+                  dayMaxEvents={true}
+                  weekends={true}
+                  height="auto"
+                  contentHeight="500px"
                   select={handleDateSelect}
                   eventClick={handleEventClick}
                   eventDrop={handleEventDrop}
                   eventResize={handleEventResize}
+                  viewDidMount={(info) => setCurrentView(info.view.type)}
+                  eventDisplay="block"
+                  eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"
                 />
               </div>
-            )}
-            {isFormOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <EventForm
-                  isOpen={isFormOpen}
-                  onClose={handleCloseForm}
-                  onSubmit={handleFormSubmit}
-                  initialData={editingEvent}
-                  isLoading={formMutation.isPending}
-                  error={formMutation.error}
-                />
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingEvent?.id ? 'Edit Event' : 'Create New Event'}
+            </DialogTitle>
+          </DialogHeader>
+          <EventForm
+            isOpen={isFormOpen}
+            onClose={handleCloseForm}
+            onSubmit={handleFormSubmit}
+            initialData={editingEvent}
+            isLoading={formMutation.isPending}
+            error={formMutation.error}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -55,7 +55,13 @@ export function IntelligentDeadlineRemindersForm() {
         });
         setResult(aiResponse);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'An unknown error occurred.');
+        const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
+        setError(errorMessage);
+        
+        // If it's an API key error, show a more helpful message
+        if (errorMessage.includes('GOOGLE_API_KEY')) {
+          setError('AI features require Google API configuration. The form will work with fallback suggestions until you configure your API key.');
+        }
       }
     });
   };

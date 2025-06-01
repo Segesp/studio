@@ -28,7 +28,54 @@ const IntelligentDeadlineReminderOutputSchema = z.object({
 export type IntelligentDeadlineReminderOutput = z.infer<typeof IntelligentDeadlineReminderOutputSchema>;
 
 export async function intelligentDeadlineReminder(input: IntelligentDeadlineReminderInput): Promise<IntelligentDeadlineReminderOutput> {
-  return intelligentDeadlineReminderFlow(input);
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your-google-api-key-here') {
+      throw new Error('AI features are unavailable. Please configure GOOGLE_API_KEY in your environment variables.');
+    }
+    return await intelligentDeadlineReminderFlow(input);
+  } catch (error) {
+    // Provide fallback response when AI is not available
+    console.error('Intelligent Deadline Reminder AI Error:', error);
+    
+    // Generate a basic fallback reminder logic
+    const deadline = new Date(input.deadline);
+    const now = new Date();
+    const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let shouldRemind = false;
+    let reminderTime: string | undefined;
+    let reason = '';
+    
+    if (daysUntilDeadline > 0) {
+      // Basic logic: remind based on complexity and workload
+      let reminderDaysAdvance = 1; // default
+      
+      if (input.taskComplexity === 'high') reminderDaysAdvance = 3;
+      else if (input.taskComplexity === 'medium') reminderDaysAdvance = 2;
+      
+      if (input.currentWorkload === 'heavy') reminderDaysAdvance += 1;
+      
+      if (daysUntilDeadline >= reminderDaysAdvance) {
+        shouldRemind = true;
+        const reminderDate = new Date();
+        reminderDate.setDate(reminderDate.getDate() + (daysUntilDeadline - reminderDaysAdvance));
+        reminderDate.setHours(9, 0, 0, 0); // 9 AM reminder
+        reminderTime = reminderDate.toISOString();
+        
+        reason = `Fallback logic: Suggesting reminder ${reminderDaysAdvance} days before deadline based on ${input.taskComplexity} complexity and ${input.currentWorkload} workload. For intelligent AI-powered suggestions, please configure your Google API key.`;
+      } else {
+        reason = `Fallback logic: Task deadline is too soon (${daysUntilDeadline} days) for optimal reminder scheduling. For intelligent AI-powered suggestions, please configure your Google API key.`;
+      }
+    } else {
+      reason = 'Task deadline has passed or is today. No reminder needed.';
+    }
+    
+    return {
+      shouldRemind,
+      reminderTime,
+      reason
+    };
+  }
 }
 
 const prompt = ai.definePrompt({

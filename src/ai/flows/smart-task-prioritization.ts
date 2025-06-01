@@ -38,7 +38,46 @@ const SmartTaskPrioritizationOutputSchema = z.object({
 export type SmartTaskPrioritizationOutput = z.infer<typeof SmartTaskPrioritizationOutputSchema>;
 
 export async function smartTaskPrioritization(input: SmartTaskPrioritizationInput): Promise<SmartTaskPrioritizationOutput> {
-  return smartTaskPrioritizationFlow(input);
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your-google-api-key-here') {
+      throw new Error('AI features are unavailable. Please configure GOOGLE_API_KEY in your environment variables.');
+    }
+    return await smartTaskPrioritizationFlow(input);
+  } catch (error) {
+    // Provide fallback response when AI is not available
+    console.error('Smart Task Prioritization AI Error:', error);
+    
+    // Generate a basic fallback prioritization based on deadlines and importance
+    const prioritizedTasks = input.tasks
+      .map(task => {
+        let score = 0;
+        
+        // Score based on importance
+        if (task.importance === 'high') score += 70;
+        else if (task.importance === 'medium') score += 50;
+        else score += 30;
+        
+        // Score based on deadline proximity
+        if (task.deadline) {
+          const deadline = new Date(task.deadline);
+          const now = new Date();
+          const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysUntilDeadline <= 1) score += 30;
+          else if (daysUntilDeadline <= 3) score += 20;
+          else if (daysUntilDeadline <= 7) score += 10;
+        }
+        
+        return {
+          id: task.id,
+          priorityScore: score,
+          reason: `Fallback scoring: ${task.importance} importance task. For intelligent AI-powered prioritization, please configure your Google API key.`
+        };
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore);
+    
+    return { prioritizedTasks };
+  }
 }
 
 const prompt = ai.definePrompt({

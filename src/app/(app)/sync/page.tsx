@@ -1,18 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { RefreshCw, CheckCircle, Wifi, Cloud } from "lucide-react";
+import { RefreshCw, CheckCircle, Wifi, Cloud, Users, FileText, Calendar } from "lucide-react";
 import Image from "next/image";
+import { ConnectionStatus } from "@/components/sync/connection-status";
+import { useWebSocketContext } from "@/components/providers/websocket-provider";
 
 export default function SyncPage() {
+  const { connected, connecting, error } = useWebSocketContext();
   return (
     <div className="container mx-auto py-8">
       <Card className="shadow-xl">
         <CardHeader>
-          <div className="flex items-center space-x-3">
-            <RefreshCw className="h-8 w-8 text-primary animate-spin [animation-duration:3s]" />
-            <CardTitle className="text-3xl font-headline">Multi-Device Synchronization</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <RefreshCw className="h-8 w-8 text-primary animate-spin [animation-duration:3s]" />
+              <CardTitle className="text-3xl font-headline">Multi-Device Synchronization</CardTitle>
+            </div>
+            <ConnectionStatus />
           </div>
           <CardDescription className="text-lg">
-            Your data is kept up-to-date across all your devices.
+            Your data is kept up-to-date across all your devices with real-time synchronization.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -26,12 +32,23 @@ export default function SyncPage() {
               data-ai-hint="cloud sync devices"
             />
             <h2 className="text-2xl font-semibold text-foreground flex items-center">
-              <CheckCircle className="h-7 w-7 text-green-500 mr-2" />
-              Everything is Synced!
+              {connected ? (
+                <CheckCircle className="h-7 w-7 text-green-500 mr-2" />
+              ) : connecting ? (
+                <RefreshCw className="h-7 w-7 text-yellow-500 mr-2 animate-spin" />
+              ) : (
+                <Wifi className="h-7 w-7 text-gray-500 mr-2" />
+              )}
+              {connected ? 'Everything is Synced!' : connecting ? 'Connecting...' : 'Sync Available'}
             </h2>
             <p className="text-muted-foreground">
-              Synergy Suite ensures your documents, calendar events, and tasks are always synchronized.
-              Work seamlessly whether you're on your desktop, tablet, or phone.
+              {connected ? (
+                'Synergy Suite ensures your documents, calendar events, and tasks are always synchronized. Work seamlessly whether you\'re on your desktop, tablet, or phone.'
+              ) : error ? (
+                `Connection issue: ${error}. Your changes will sync automatically when connection is restored.`
+              ) : (
+                'Synergy Suite provides real-time synchronization for all your content. Connect to enable live collaboration and instant updates.'
+              )}
             </p>
           </div>
 

@@ -22,13 +22,26 @@ export default async function handler(
     }
 
     if (req.method === 'GET') {
+      const { include, latest } = req.query;
+      
+      let includeVersions = false;
+      if (include === 'versions') {
+        includeVersions = true;
+      }
+      
       const doc = await prisma.doc.findUnique({
         where: { id: docId },
         include: { 
-            owner: { select: { name: true, email: true, image: true } },
-            versions: { orderBy: { createdAt: 'desc' }, take: 1 }
+          owner: { select: { name: true, email: true, image: true } },
+          ...(includeVersions && {
+            versions: { 
+              orderBy: { createdAt: 'desc' }, 
+              take: latest === 'true' ? 1 : 10
+            }
+          })
         }
       });
+      
       if (!doc) {
         return res.status(404).json({ message: 'Document not found' });
       }

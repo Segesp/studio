@@ -41,7 +41,14 @@ export default async function handler(
         return res.status(403).json({ message: 'Forbidden' });
       }
 
-      const { title, description, dueDate, priority, tags, status } = req.body as Partial<Task>;
+      const { title, description, dueDate, priority, tags, status } = req.body as {
+        title?: string;
+        description?: string;
+        dueDate?: string | Date;
+        priority?: number;
+        tags?: string | string[];
+        status?: string;
+      };
       const updatedTask = await prisma.task.update({
         where: { id: taskId },
         data: {
@@ -49,7 +56,7 @@ export default async function handler(
           description,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           priority: priority !== undefined ? Number(priority) : undefined,
-          tags,
+          tags: typeof tags === 'string' ? tags : (Array.isArray(tags) ? tags.join(',') : undefined),
           status,
         },
       });

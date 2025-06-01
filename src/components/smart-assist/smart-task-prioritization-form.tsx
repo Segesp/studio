@@ -64,7 +64,13 @@ export function SmartTaskPrioritizationForm() {
         });
         setResult(aiResponse);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to prioritize tasks. Check JSON format.');
+        const errorMessage = e instanceof Error ? e.message : 'Failed to prioritize tasks. Check JSON format.';
+        setError(errorMessage);
+        
+        // If it's an API key error, show a more helpful message
+        if (errorMessage.includes('GOOGLE_API_KEY')) {
+          setError('AI features require Google API configuration. The form will work with fallback suggestions until you configure your API key.');
+        }
       }
     });
   };

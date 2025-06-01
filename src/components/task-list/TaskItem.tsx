@@ -15,7 +15,7 @@ interface Task {
   status: string; // e.g., "pending", "in_progress", "done"
   priority?: number;
   dueDate?: string; // ISO string
-  tags?: string[];
+  tags?: string; // Changed to string to match SQLite schema
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
 }

@@ -32,7 +32,14 @@ export default async function handler(
       });
       res.status(200).json(tasks);
     } else if (req.method === 'POST') {
-      const { title, description, dueDate, priority, tags, status } = req.body as Partial<Task>;
+      const { title, description, dueDate, priority, tags, status } = req.body as {
+        title?: string;
+        description?: string;
+        dueDate?: string | Date;
+        priority?: number;
+        tags?: string | string[];
+        status?: string;
+      };
       if (!title) {
         return res.status(400).json({ message: 'Title is required' });
       }
@@ -43,7 +50,7 @@ export default async function handler(
           description,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           priority: priority !== undefined ? Number(priority) : 0,
-          tags: tags || [],
+          tags: typeof tags === 'string' ? tags : (Array.isArray(tags) ? tags.join(',') : null),
           status: status || 'pending',
           userId,
         },

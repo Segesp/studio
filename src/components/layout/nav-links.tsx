@@ -10,6 +10,7 @@ import {
   ListChecks,
   Cpu,
   RefreshCw,
+  Shield,
   type LucideIcon,
   CalendarClock,
   ListFilter,
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
   { href: '/smart-assist/event-scheduling', label: 'Event Scheduling', icon: CalendarClock, isSmartAssist: true },
   { href: '/smart-assist/task-prioritization', label: 'Task Prioritization', icon: ListFilter, isSmartAssist: true },
   { href: '/smart-assist/deadline-reminders', label: 'Deadline Reminders', icon: BellPlus, isSmartAssist: true },
+  { href: '/smart-assist/admin', label: 'AI Administration', icon: Shield, isSmartAssist: true },
   { href: '/sync', label: 'Sync Status', icon: RefreshCw },
 ];
 
@@ -44,7 +46,7 @@ export function NavLinks() {
   const pathname = usePathname();
 
   // Group Smart Assist items for the main "Smart Assist" link highlighting
-  const isSmartAssistPath = pathname.startsWith('/smart-assist');
+  const isSmartAssistPath = pathname?.startsWith('/smart-assist') ?? false;
 
   return (
     <SidebarMenu>
@@ -53,11 +55,11 @@ export function NavLinks() {
           <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
               asChild
-              isActive={item.isSmartAssist ? (isSmartAssistPath && pathname.startsWith(item.href)) : pathname.startsWith(item.href)}
+              isActive={item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href)}
               tooltip={item.label}
               className={cn(
                 "justify-start",
-                (item.isSmartAssist ? (isSmartAssistPath && pathname.startsWith(item.href)) : pathname.startsWith(item.href))
+                (item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href))
                   ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground"
                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
