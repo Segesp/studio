@@ -1,12 +1,88 @@
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ListChecks, KanbanSquare, Tag } from "lucide-react";
-import Image from "next/image";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PlusCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TaskItem } from '@/components/task-list/TaskItem';
+import { TaskForm } from '@/components/task-list/TaskForm';
+import { Loader } from '@/components/ui/loader';
+
+// Assuming a Task interface based on your Prisma schema/API responses
+interface Task {
+  id: string;
+  title: string;
+  status: string;
+  dueDate?: string;
+  priority?: number;
+  description?: string; // Added description for the form
+}
+
+// Function to fetch tasks from the API
+const fetchTasks = async (): Promise<Task[]> => {
+  const res = await fetch('/api/tasks');
+  if (!res.ok) {
+    throw new Error('Failed to fetch tasks');
+  }
+  return res.json();
+};
+
+// Assuming a basic Task structure for form data
+interface TaskFormData extends Partial<Task> {
+  // Include any fields used in the form that might be slightly different initially
+  // e.g., dueDate might be a string from input before conversion
+}
 
 export default function TaskListPage() {
-  return (
-    <div className="container mx-auto py-8">
-      <Card className="shadow-xl">
-        <CardHeader>
+  const queryClient = useQueryClient();
+
+  const { data: tasks, isLoading, error } = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks });
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingTask(null); // Reset editing task when form is closed
+  };
+
+  // Mutation for updating task status
+  const onToggleStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      console.log('Toggle status mutation called', { id, status });
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to update task status');
+      }
+      return res.json(); // Or handle 200/204 appropriately
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] }); // Refetch tasks after successful update
+    },
+  });
+
+  // Mutation for deleting a task
+  const onDelete = useMutation({
+    mutationFn: async (id: string) => {
+      console.log('Delete mutation called', id);
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to delete task');
+      }
+      // No body for 204, just check res.ok
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] }); // Refetch tasks after successful deletion
+    },
+  });
+
           <div className="flex items-center space-x-3">
             <ListChecks className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-headline">Task Management</CardTitle>
@@ -58,6 +134,61 @@ export default function TaskListPage() {
           </div>
         </CardContent>
       </Card>
+
+      <h1 className="text-3xl font-bold">Task List</h1>
+
+      <Button className="mb-4" onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
+        <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+      </Button>
+
+      {isLoading && <Loader />}
+
+      {error && (
+        <div className="text-red-500">Error loading tasks: {error.message}</div>
+      )}
+
+      {!isLoading && !error && tasks && (
+        tasks.length === 0 ? (
+          <div className="text-center text-muted-foreground">
+            No tasks yet. Create your first task!
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tasks.map((task) => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                onToggleStatus={(id, status) => onToggleStatus.mutate({ id, status })}
+                onEdit={setEditingTask} // Pass the task object to setEditingTask
+                onDelete={(id) => onDelete.mutate(id)}
+              />
+            ))}
+          </div>
+        )
+      )}
+
+      {/* Task Form Dialog/Modal */}
+      <TaskForm
+        isOpen={isFormOpen}
+        onClose={handleCloseForm}
+        onSubmit={(formData) => {
+          // Determine if it's a create or edit operation
+          if (formData.id) {
+            // Edit operation
+            console.log('Submit Edit Mutation Placeholder:', formData);
+             // Placeholder for edit mutation call
+             // onFormSubmit.mutate(formData);
+          } else {
+            // Create operation
+            console.log('Submit Create Mutation Placeholder:', formData);
+             // Placeholder for create mutation call
+             // onFormSubmit.mutate(formData);
+          }
+          // Call the actual mutation function when implemented
+           // onFormSubmit.mutate(formData);
+        }}
+        initialData={editingTask}
+      />
     </div>
   );
 }
