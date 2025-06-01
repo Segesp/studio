@@ -1,9 +1,40 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { SmartEventSchedulingForm } from "@/components/smart-assist/smart-event-scheduling-form";
-import { SmartTaskPrioritizationForm } from "@/components/smart-assist/smart-task-prioritization-form";
-import { IntelligentDeadlineRemindersForm } from "@/components/smart-assist/intelligent-deadline-reminders-form";
-import { Cpu, CalendarClock, ListFilter, BellPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Cpu, CalendarClock, ListFilter, BellPlus, ArrowRight } from "lucide-react";
+import Link from "next/link";
+
+interface SmartAssistFeature {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  href: string;
+  cta: string;
+}
+
+const features: SmartAssistFeature[] = [
+  {
+    title: "Smart Event Scheduling",
+    description: "Let AI find the optimal time for your next event based on participant availability and preferences.",
+    icon: CalendarClock,
+    href: "/smart-assist/event-scheduling",
+    cta: "Schedule Event",
+  },
+  {
+    title: "Smart Task Prioritization",
+    description: "Get AI-powered suggestions for prioritizing your tasks based on deadlines, importance, and context.",
+    icon: ListFilter,
+    href: "/smart-assist/task-prioritization",
+    cta: "Prioritize Tasks",
+  },
+  {
+    title: "Intelligent Deadline Reminders",
+    description: "Receive smart suggestions on when to be reminded for your tasks, considering complexity and workload.",
+    icon: BellPlus,
+    href: "/smart-assist/deadline-reminders",
+    cta: "Set Reminders",
+  },
+];
 
 export default function SmartAssistPage() {
   return (
@@ -15,40 +46,31 @@ export default function SmartAssistPage() {
             <CardTitle className="text-3xl font-headline">Smart Assist</CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Leverage AI to enhance your productivity with intelligent suggestions.
+            Leverage AI to enhance your productivity with intelligent suggestions for scheduling, task prioritization, and reminders.
           </CardDescription>
         </CardHeader>
       </Card>
 
-      <Tabs defaultValue="event-scheduling" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 mb-6">
-          <TabsTrigger value="event-scheduling" className="flex items-center gap-2 py-3">
-            <CalendarClock className="h-5 w-5" /> Event Scheduling
-          </TabsTrigger>
-          <TabsTrigger value="task-prioritization" className="flex items-center gap-2 py-3">
-            <ListFilter className="h-5 w-5" /> Task Prioritization
-          </TabsTrigger>
-          <TabsTrigger value="deadline-reminders" className="flex items-center gap-2 py-3">
-            <BellPlus className="h-5 w-5" /> Deadline Reminders
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="event-scheduling">
-          <div className="flex justify-center">
-            <SmartEventSchedulingForm />
-          </div>
-        </TabsContent>
-        <TabsContent value="task-prioritization">
-          <div className="flex justify-center">
-            <SmartTaskPrioritizationForm />
-          </div>
-        </TabsContent>
-        <TabsContent value="deadline-reminders">
-          <div className="flex justify-center">
-            <IntelligentDeadlineRemindersForm />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map((feature) => (
+          <Card key={feature.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col">
+            <CardHeader>
+              <div className="flex items-center space-x-3 mb-2">
+                <feature.icon className="h-7 w-7 text-primary" />
+                <CardTitle className="text-xl">{feature.title}</CardTitle>
+              </div>
+              <CardDescription>{feature.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex items-end">
+              <Link href={feature.href} passHref className="w-full">
+                <Button variant="outline" className="w-full">
+                  {feature.cta} <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
