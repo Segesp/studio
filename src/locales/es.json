@@ -1,0 +1,15 @@
+{
+  "nav": {
+    "dashboard": "Panel",
+    "docs": "Documentos",
+    "calendar": "Calendario",
+    "tasks": "Tareas",
+    "eventScheduling": "Programación de eventos",
+    "taskPrioritization": "Priorización de tareas",
+    "deadlineReminders": "Recordatorios",
+    "admin": "Administración AI",
+    "sync": "Sincronización"
+  },
+  "title": "Synergy Suite",
+  "description": "Colabora, Organiza, Logra."
+}

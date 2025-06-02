@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "next.config.js",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    { "src": "/_next/static/(.*)", "headers": { "cache-control": "public, max-age=86400, immutable" }, "dest": "/_next/static/$1" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ],
+  "env": {
+    "DATABASE_URL": "@database-url",
+    "NEXTAUTH_SECRET": "@nextauth-secret",
+    "NEXTAUTH_URL": "@nextauth-url",
+    "OPENAI_API_KEY": "@openai-api-key",
+    "SENTRY_DSN": "@sentry-dsn",
+    "GOOGLE_API_KEY": "@google-api-key"
+  },
+  "regions": ["iad1", "fra1"]
+}

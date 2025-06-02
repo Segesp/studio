@@ -6,6 +6,7 @@ import { SessionProviderWrapper } from '@/components/layout/session-provider-wra
 import { WebSocketProvider } from '@/components/providers/websocket-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { ThemeProvider } from '@/components/theme/theme-provider';
+import { IntlProvider } from 'react-intl';
 import Script from 'next/script';
 // import { getServerSession } from 'next-auth/next'; // Not needed here for App Router root layout
 // import { authOptions } from '@/pages/api/auth/[...nextauth]'; // Not needed here
@@ -17,13 +18,13 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: { locale: string };
 }>) {
-  // For App Router, SessionProvider typically wraps the client-side part
-  // or is used in a client component. We'll pass the session if available
-  // but SessionProvider itself handles fetching on the client.
-  // const session = await getServerSession(authOptions); // This would make the root layout dynamic
+  const locale = params.locale;
+  const messages = (await import(`../locales/${locale}.json`)).default;
 
   return (
     <html lang="en">
@@ -51,7 +52,9 @@ export default async function RootLayout({
             <QueryProvider>
               <WebSocketProvider>
                 <SidebarProvider defaultOpen={true}>
-                  {children}
+                  <IntlProvider locale={locale} messages={messages} defaultLocale="es">
+                    {children}
+                  </IntlProvider>
                 </SidebarProvider>
               </WebSocketProvider>
             </QueryProvider>

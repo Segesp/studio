@@ -1,20 +1,19 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard,
   FileText,
   CalendarDays,
   ListChecks,
-  Cpu,
   RefreshCw,
   Shield,
-  type LucideIcon,
   CalendarClock,
   ListFilter,
   BellPlus,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -25,25 +24,26 @@ import { cn } from '@/lib/utils';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   isSmartAssist?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/collaborative-docs', label: 'Docs', icon: FileText },
-  { href: '/interactive-calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/task-list', label: 'Tasks', icon: ListChecks },
-  { href: '/smart-assist/event-scheduling', label: 'Event Scheduling', icon: CalendarClock, isSmartAssist: true },
-  { href: '/smart-assist/task-prioritization', label: 'Task Prioritization', icon: ListFilter, isSmartAssist: true },
-  { href: '/smart-assist/deadline-reminders', label: 'Deadline Reminders', icon: BellPlus, isSmartAssist: true },
-  { href: '/smart-assist/admin', label: 'AI Administration', icon: Shield, isSmartAssist: true },
-  { href: '/sync', label: 'Sync Status', icon: RefreshCw },
+  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/collaborative-docs', labelKey: 'docs', icon: FileText },
+  { href: '/interactive-calendar', labelKey: 'calendar', icon: CalendarDays },
+  { href: '/task-list', labelKey: 'tasks', icon: ListChecks },
+  { href: '/smart-assist/event-scheduling', labelKey: 'eventScheduling', icon: CalendarClock, isSmartAssist: true },
+  { href: '/smart-assist/task-prioritization', labelKey: 'taskPrioritization', icon: ListFilter, isSmartAssist: true },
+  { href: '/smart-assist/deadline-reminders', labelKey: 'deadlineReminders', icon: BellPlus, isSmartAssist: true },
+  { href: '/smart-assist/admin', labelKey: 'admin', icon: Shield, isSmartAssist: true },
+  { href: '/sync', labelKey: 'sync', icon: RefreshCw },
 ];
 
 export function NavLinks() {
   const pathname = usePathname();
+  const t = useTranslations('nav');
 
   // Group Smart Assist items for the main "Smart Assist" link highlighting
   const isSmartAssistPath = pathname?.startsWith('/smart-assist') ?? false;
@@ -56,7 +56,7 @@ export function NavLinks() {
             <SidebarMenuButton
               asChild
               isActive={item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href)}
-              tooltip={item.label}
+              tooltip={item.labelKey}
               className={cn(
                 "justify-start",
                 (item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href))
@@ -65,15 +65,17 @@ export function NavLinks() {
               )}
             >
               <a
-                aria-label={`Navigate to ${item.label}`}
+                aria-label={
+                  `Navigate to ${t(item.labelKey)}`
+                }
                 aria-current={
                   (item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href))
-                    ? "page"
+                    ? 'page'
                     : undefined
                 }
               >
                 <item.icon className="h-5 w-5" aria-hidden="true" />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
               </a>
             </SidebarMenuButton>
           </Link>
