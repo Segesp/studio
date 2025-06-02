@@ -21,6 +21,7 @@ import { Loader } from '@/components/ui/loader';
 import { UserCircle } from 'lucide-react';
 import { LogoutButton } from '@/components/layout/logout-button';
 import { RealtimeNotifications } from '@/components/sync/realtime-notifications';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   let session;
@@ -57,52 +58,93 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar collapsible="icon" side="left" variant="sidebar">
-        <SidebarRail />
-        <SidebarHeader className="p-4">
-          <div className="flex flex-col space-y-2">
-            <div className="flex items-center justify-between">
-              <Link href="/dashboard" className="font-headline text-2xl font-semibold text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors">
-                  Synergy Suite
-              </Link>
-              <SidebarTrigger className="md:hidden" />
-            </div>
-            {session?.user && (
-              <div className="flex items-center space-x-2 text-sm text-sidebar-foreground/80 overflow-hidden">
-                <UserCircle className="h-5 w-5 shrink-0" />
-                <span className="truncate" title={session.user.email ?? session.user.name ?? 'User'}>
-                  {session.user.name || session.user.email}
-                </span>
+    <>
+      {/* Skip Navigation Links for Accessibility */}
+      <a href="#main-content" className="skip-nav">
+        Ir al contenido principal
+      </a>
+      <a href="#sidebar-nav" className="skip-nav">
+        Ir a la navegación
+      </a>
+      
+      <div className="flex min-h-screen">
+        <Sidebar collapsible="icon" side="left" variant="sidebar">
+          <SidebarRail />
+          <SidebarHeader className="p-4">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <Link 
+                  href="/dashboard" 
+                  className="font-headline text-2xl font-semibold text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
+                  aria-label="Synergy Suite - Go to dashboard"
+                >
+                    Synergy Suite
+                </Link>
+                <SidebarTrigger 
+                  className="md:hidden" 
+                  aria-label="Toggle navigation menu"
+                />
               </div>
-            )}
-          </div>
-        </SidebarHeader>
-        <SidebarContent className="flex-1 p-2">
-          <NavLinks />
-        </SidebarContent>
-        <SidebarFooter className="p-4">
-          <LogoutButton />
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset className="flex-1 bg-background">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-md md:justify-end">
-           <div className="md:hidden"> </div>
-           <div className="flex items-center space-x-4">
-             <RealtimeNotifications />
-             <SidebarTrigger className="hidden md:flex" />
-           </div>
-        </header>
-        <main className="flex-1 p-6">
-          <Suspense fallback={
-            <div className="flex h-[calc(100vh-12rem)] w-full items-center justify-center">
-              <Loader size={48} />
+              {session?.user && (
+                <div 
+                  className="flex items-center space-x-2 text-sm text-sidebar-foreground/80 overflow-hidden"
+                  aria-label={`Logged in as ${session.user.name || session.user.email}`}
+                >
+                  <UserCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  <span className="truncate" title={session.user.email ?? session.user.name ?? 'User'}>
+                    {session.user.name || session.user.email}
+                  </span>
+                </div>
+              )}
             </div>
-          }>
-            {children}
-          </Suspense>
-        </main>
-      </SidebarInset>
-    </div>
+          </SidebarHeader>
+          <SidebarContent className="flex-1 p-2" id="sidebar-nav">
+            <NavLinks />
+          </SidebarContent>
+          <SidebarFooter className="p-4">
+            <LogoutButton />
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset className="flex-1 bg-background">
+          <header 
+            className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-md md:justify-end"
+            role="banner"
+          >
+             <div className="md:hidden" aria-hidden="true"> </div>
+             <div 
+               className="flex items-center space-x-4"
+               role="toolbar"
+               aria-label="Theme and notifications toolbar"
+             >
+               <ThemeToggle />
+               <RealtimeNotifications />
+               <SidebarTrigger 
+                 className="hidden md:flex" 
+                 aria-label="Toggle navigation sidebar"
+               />
+             </div>
+          </header>
+          <main 
+            id="main-content" 
+            className="flex-1 p-6"
+            role="main"
+            aria-label="Main application content"
+          >
+            <Suspense fallback={
+              <div 
+                className="flex h-[calc(100vh-12rem)] w-full items-center justify-center"
+                role="status"
+                aria-label="Loading main content"
+              >
+                <Loader size={48} />
+                <span className="sr-only">Cargando contenido principal...</span>
+              </div>
+            }>
+              {children}
+            </Suspense>
+          </main>
+        </SidebarInset>
+      </div>
+    </>
   );
 }

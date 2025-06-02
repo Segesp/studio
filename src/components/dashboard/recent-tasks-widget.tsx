@@ -75,29 +75,31 @@ export function RecentTasksWidget() {
   }
 
   return (
-    <Card>
+    <Card role="region" aria-labelledby="recent-tasks-title">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-semibold">Tareas Recientes</CardTitle>
-        <Link href="/task-list">
+        <CardTitle id="recent-tasks-title" className="text-lg font-semibold">
+          Tareas Recientes
+        </CardTitle>
+        <Link href="/task-list" aria-label="Go to all tasks">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </Link>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
           <div className="text-center py-8">
-            <Circle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <Circle className="mx-auto h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
             <p className="text-muted-foreground mb-4">No hay tareas recientes</p>
             <Link href="/task-list">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button size="sm" aria-label="Create new task">
+                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
                 Crear tarea
               </Button>
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" role="list" aria-label="Recent tasks list">
             {tasks.slice(0, 6).map((task) => {
               const statusInfo = statusConfig[task.status as keyof typeof statusConfig] || statusConfig.pending;
               const priorityInfo = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig[1];
@@ -106,15 +108,28 @@ export function RecentTasksWidget() {
               return (
                 <div 
                   key={task.id} 
-                  className="flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition-shadow"
+                  className="flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                  role="listitem"
+                  tabIndex={0}
+                  aria-labelledby={`task-title-${task.id}`}
+                  aria-describedby={`task-meta-${task.id}`}
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <statusInfo.icon 
                       className={`h-5 w-5 flex-shrink-0 ${isOverdue ? 'text-red-500' : statusInfo.color}`} 
+                      aria-label={`Task status: ${isOverdue ? 'Overdue' : statusInfo.label}`}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{task.title}</p>
-                      <div className="flex items-center space-x-2 mt-1">
+                      <p 
+                        id={`task-title-${task.id}`}
+                        className="text-sm font-medium truncate"
+                      >
+                        {task.title}
+                      </p>
+                      <div 
+                        id={`task-meta-${task.id}`}
+                        className="flex items-center space-x-2 mt-1"
+                      >
                         <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(task.createdAt), { 
                             addSuffix: true, 
@@ -136,6 +151,7 @@ export function RecentTasksWidget() {
                     <Badge 
                       variant="secondary" 
                       className={`text-xs ${priorityInfo.color} ${priorityInfo.bg}`}
+                      aria-label={`Priority: ${priorityInfo.label}`}
                     >
                       {priorityInfo.label}
                     </Badge>
@@ -146,7 +162,12 @@ export function RecentTasksWidget() {
             {tasks.length > 6 && (
               <div className="pt-2 border-t">
                 <Link href="/task-list">
-                  <Button variant="ghost" size="sm" className="w-full">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full"
+                    aria-label={`View all ${tasks.length} tasks`}
+                  >
                     Ver todas las tareas ({tasks.length})
                   </Button>
                 </Link>

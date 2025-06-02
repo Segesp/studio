@@ -49,7 +49,7 @@ export function NavLinks() {
   const isSmartAssistPath = pathname?.startsWith('/smart-assist') ?? false;
 
   return (
-    <SidebarMenu>
+    <SidebarMenu role="navigation" aria-label="Main navigation">
       {navItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <Link href={item.href} passHref legacyBehavior>
@@ -64,8 +64,15 @@ export function NavLinks() {
                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <a>
-                <item.icon className="h-5 w-5" />
+              <a
+                aria-label={`Navigate to ${item.label}`}
+                aria-current={
+                  (item.isSmartAssist ? (isSmartAssistPath && pathname?.startsWith(item.href)) : pathname?.startsWith(item.href))
+                    ? "page"
+                    : undefined
+                }
+              >
+                <item.icon className="h-5 w-5" aria-hidden="true" />
                 <span>{item.label}</span>
               </a>
             </SidebarMenuButton>

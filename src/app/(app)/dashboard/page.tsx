@@ -1,102 +1,132 @@
 'use client';
 
-import { Suspense } from 'react';
-import { StatsWidget } from '@/components/dashboard/stats-widget';
-import { RecentActivityWidget } from '@/components/dashboard/recent-activity-widget';
-import { RecentTasksWidget } from '@/components/dashboard/recent-tasks-widget';
-import { UpcomingEventsWidget } from '@/components/dashboard/upcoming-events-widget';
-import { ProductivityChartsWidget } from '@/components/dashboard/productivity-charts-widget';
-import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
+import { Suspense, memo, lazy } from 'react';
+import { LazyWidget } from '@/components/ui/lazy-widget';
+import { AnimatedSkeleton } from '@/components/ui/animated-skeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { BarChart3, Activity, TrendingUp } from 'lucide-react';
+import { PageTransition, StaggerContainer, FadeInUp } from '@/components/ui/page-transition';
 
-function DashboardSkeleton() {
+// Direct lazy imports to avoid typing issues
+const StatsWidget = lazy(() => import('@/components/dashboard/stats-widget').then(m => ({ default: m.StatsWidget })));
+const QuickActionsWidget = lazy(() => import('@/components/dashboard/quick-actions-widget').then(m => ({ default: m.QuickActionsWidget })));
+const ProductivityChartsWidget = lazy(() => import('@/components/dashboard/productivity-charts-widget-optimized').then(m => ({ default: m.ProductivityChartsWidget })));
+const RecentTasksWidget = lazy(() => import('@/components/dashboard/recent-tasks-widget').then(m => ({ default: m.RecentTasksWidget })));
+const UpcomingEventsWidget = lazy(() => import('@/components/dashboard/upcoming-events-widget').then(m => ({ default: m.UpcomingEventsWidget })));
+const RecentActivityWidget = lazy(() => import('@/components/dashboard/recent-activity-widget').then(m => ({ default: m.RecentActivityWidget })));
+
+// Memoized skeleton component for better performance
+const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       {/* Stats skeleton */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-5 w-5" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-32" />
-            </CardContent>
-          </Card>
+          <AnimatedSkeleton key={i} variant="card" className="h-32" />
         ))}
       </div>
       
+      {/* Quick actions skeleton */}
+      <AnimatedSkeleton variant="card" className="h-48" />
+      
       {/* Charts skeleton */}
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+      <AnimatedSkeleton variant="chart" className="h-96" />
+      
+      {/* Tasks and events skeleton */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <AnimatedSkeleton variant="card" className="h-64" />
+        <AnimatedSkeleton variant="card" className="h-64" />
+      </div>
+      
+      {/* Activity skeleton */}
+      <AnimatedSkeleton variant="card" className="h-56" />
     </div>
   );
-}
+});
 
 export default function DashboardPage() {
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Bienvenido a tu panel de control de Synergy Suite
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-            <Activity className="h-4 w-4" />
-            <span>Tiempo real</span>
+    <PageTransition>
+      <div className="container mx-auto py-6 space-y-6">
+        {/* Header */}
+        <FadeInUp>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+              <p className="text-muted-foreground">
+                Bienvenido a tu panel de control de Synergy Suite
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                <Activity className="h-4 w-4" />
+                <span>Tiempo real</span>
+              </div>
+            </div>
           </div>
-        </div>
+        </FadeInUp>
+
+        <Suspense fallback={<DashboardSkeleton />}>
+          <StaggerContainer className="space-y-6">
+            {/* Estadísticas principales */}
+            <FadeInUp delay={100}>
+              <section>
+                <LazyWidget skeletonVariant="card">
+                  <StatsWidget />
+                </LazyWidget>
+              </section>
+            </FadeInUp>
+
+            {/* Acciones rápidas */}
+            <FadeInUp delay={200}>
+              <section>
+                <LazyWidget skeletonVariant="card">
+                  <QuickActionsWidget />
+                </LazyWidget>
+              </section>
+            </FadeInUp>
+
+            {/* Gráficos de productividad */}
+            <FadeInUp delay={300}>
+              <section>
+                <div className="flex items-center space-x-2 mb-4">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Análisis de Productividad</h2>
+                </div>
+                <LazyWidget skeletonVariant="chart">
+                  <ProductivityChartsWidget />
+                </LazyWidget>
+              </section>
+            </FadeInUp>
+
+            {/* Contenido principal - Tareas y Eventos */}
+            <FadeInUp delay={400}>
+              <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <LazyWidget skeletonVariant="card">
+                  <RecentTasksWidget />
+                </LazyWidget>
+                <LazyWidget skeletonVariant="card">
+                  <UpcomingEventsWidget />
+                </LazyWidget>
+              </section>
+            </FadeInUp>
+
+            {/* Actividad reciente */}
+            <FadeInUp delay={500}>
+              <section>
+                <div className="flex items-center space-x-2 mb-4">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Actividad Reciente</h2>
+                </div>
+                <LazyWidget skeletonVariant="card">
+                  <RecentActivityWidget />
+                </LazyWidget>
+              </section>
+            </FadeInUp>
+          </StaggerContainer>
+        </Suspense>
       </div>
-
-      <Suspense fallback={<DashboardSkeleton />}>
-        {/* Estadísticas principales */}
-        <section>
-          <StatsWidget />
-        </section>
-
-        {/* Acciones rápidas */}
-        <section>
-          <QuickActionsWidget />
-        </section>
-
-        {/* Gráficos de productividad */}
-        <section>
-          <div className="flex items-center space-x-2 mb-4">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Análisis de Productividad</h2>
-          </div>
-          <ProductivityChartsWidget />
-        </section>
-
-        {/* Contenido principal - Tareas y Eventos */}
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <RecentTasksWidget />
-          <UpcomingEventsWidget />
-        </section>
-
-        {/* Actividad reciente */}
-        <section>
-          <div className="flex items-center space-x-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Actividad Reciente</h2>
-          </div>
-          <RecentActivityWidget />
-        </section>
-      </Suspense>
-    </div>
+    </PageTransition>
   );
 }

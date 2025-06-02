@@ -5,6 +5,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { SessionProviderWrapper } from '@/components/layout/session-provider-wrapper';
 import { WebSocketProvider } from '@/components/providers/websocket-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { ThemeProvider } from '@/components/theme/theme-provider';
 // import { getServerSession } from 'next-auth/next'; // Not needed here for App Router root layout
 // import { authOptions } from '@/pages/api/auth/[...nextauth]'; // Not needed here
 
@@ -31,16 +32,23 @@ export default async function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <SessionProviderWrapper>
-          <QueryProvider>
-            <WebSocketProvider>
-              <SidebarProvider defaultOpen={true}>
-                {children}
-              </SidebarProvider>
-            </WebSocketProvider>
-          </QueryProvider>
-          <Toaster />
-        </SessionProviderWrapper>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProviderWrapper>
+            <QueryProvider>
+              <WebSocketProvider>
+                <SidebarProvider defaultOpen={true}>
+                  {children}
+                </SidebarProvider>
+              </WebSocketProvider>
+            </QueryProvider>
+            <Toaster />
+          </SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
