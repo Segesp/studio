@@ -6,6 +6,7 @@ import { SessionProviderWrapper } from '@/components/layout/session-provider-wra
 import { WebSocketProvider } from '@/components/providers/websocket-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { ThemeProvider } from '@/components/theme/theme-provider';
+import Script from 'next/script';
 // import { getServerSession } from 'next-auth/next'; // Not needed here for App Router root layout
 // import { authOptions } from '@/pages/api/auth/[...nextauth]'; // Not needed here
 
@@ -27,6 +28,14 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(function() {
+              try {
+                const theme = window.localStorage.getItem('theme');
+                if (theme) document.documentElement.classList.add(theme);
+              } catch (e) {}
+            })();`}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />

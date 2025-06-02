@@ -1,0 +1,69 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: studio
+    volumes:
+      - prisma_data:/var/lib/postgresql/data
+    networks:
+      - studio-network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - studio-network
+
+  yjs-server:
+    image: yjs/y-websocket-server:latest
+    restart: always
+    environment:
+      - PORT=1234
+    ports:
+      - "1234:1234"
+    networks:
+      - studio-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    depends_on:
+      - db
+      - redis
+      - yjs-server
+    env_file:
+      - .env.production
+    ports:
+      - "3001:3000"
+    networks:
+      - studio-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    depends_on:
+      - backend
+    env_file:
+      - .env.production
+    ports:
+      - "3000:3000"
+    networks:
+      - studio-network
+
+volumes:
+  prisma_data:
+  redis_data:
+
+networks:
+  studio-network:
+    driver: bridge
